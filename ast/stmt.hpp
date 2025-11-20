@@ -1,6 +1,7 @@
 #ifndef STMSL_STMT
 #define STMSL_STMT
 #include "ast.hpp"
+#include <petri/list.hpp> 
 #include <type_traits>
 enum AttribT {
     LayoutOnly,LayoutExcl,Every,
@@ -28,7 +29,7 @@ template <>struct _Qual<qual::qInline> : public AttribS<AttribT::Func> {};
 template <>struct _Qual<qual::qNoexcept> : public AttribS<AttribT::Func> {};
 
 template <Str s,qual q>
-struct Qual {static constexpr qual quality = q; static constexpr AttribT at = _Qual<q>::at; }
+struct Qual {static constexpr qual quality = q; static constexpr AttribT at = _Qual::at; }
 
 using QStatic = Qual<qual::qStatic>;
 using QConstExpr = Qual<qual::qConstExpr>;
@@ -96,12 +97,11 @@ template <> struct ptr<qNoexcept>{static constexpr bool Qualifiable<Qs...>::* p=
 
 
 
-template <temp q>
 struct stmt {
-    using param_list=param_list<q>;
+    using param_list=param_list;
     enum stmtty {
 eBlock,eNS,
-eDeclOperator,eDefOperator,
+eOperator,
 eDeclType,eDefType,
 eDeclUnion,eDefUnion,
 eExpr,
@@ -119,8 +119,7 @@ eTry,eCatch,Throw
     };
     stmtty t;
 struct NS;
-struct OperatorDecl;
-struct OperatorDef;
+struct Operator;
 struct DeclType;
 struct DefType ;
 #ifdef CXX_C
@@ -128,7 +127,7 @@ struct DeclUnion ;
 struct DefUnion;
 #endif
 
-using Expr = expr<q>;
+using Expr = expr;
 struct While;
 struct For;
 struct Do;
@@ -146,7 +145,7 @@ struct VarDecl;
 struct Using;
 struct TypeDef;
 struct Layout;
-using Enum=EnumT
+using Enum=EnumT ;
 struct Try;
 struct Catch ;
 struct Throw;
@@ -162,10 +161,10 @@ using  block =pri::deque<funcvar>;
 
         pri::deque<NS> nss; 
         pri::deque<NS> inline_nss;
-        // std::enable_if<q==temp::inst,type<q> >::type types;// TODO make correct
+        // std::enable_if<q==temp::inst,type<temp::> >::type types;// TODO make correct
         pri::deque<VarDecl> vars;
         pri::deque<FuncDecl> funcs;
-        pri::deque<OperatorDecl> operators;
+        pri::deque<Operator> operators;
         pri::deque<DeclType> types;
         pri::deque<Enum> Enums;
 #ifdef CXX_C
@@ -173,6 +172,20 @@ using  block =pri::deque<funcvar>;
 #endif
         pri::deque<Using> usings;
         pri::deque<TypeDef> tdefs;
+
+
+
+        template <typename T>
+        struct ptrmem ;
+        template <> struct ptrmem<NS>          {static constexpr pri::deque<NS> NS::* ptr=nss;};
+        template <> struct ptrmem<VarDecl>     {static constexpr pri::deque<VarDecl> NS::* ptr=vars;};
+        template <> struct ptrmem<FuncDecl>    {static constexpr pri::deque<FuncDecl> NS::* ptr=funcs;};
+        template <> struct ptrmem<Operator>{static constexpr pri::deque<Operator> NS::* ptr=operators;};
+        template <> struct ptrmem<DeclType>    {static constexpr pri::deque<DeclType> NS::* ptr=types;};
+        template <> struct ptrmem<Enum>        {static constexpr pri::deque<Enum> NS::* ptr=Enums;};
+        template <> struct ptrmem<UnionDecl>   {static constexpr pri::deque<UnionDecl> NS::* ptr=unions;};
+        template <> struct ptrmem<Using>       {static constexpr pri::deque<Using> NS::* ptr=usings;};
+        template <> struct ptrmem<TypeDef>     {static constexpr pri::deque<TypeDef> NS::* ptr=tdefs;};
 
         
         void useNs(NS* n){usingNS = }
@@ -225,7 +238,7 @@ using  block =pri::deque<funcvar>;
             throw NameNotFound<T>();
         };
         
-        void find(std::string name,result* r,resty<q>* res){
+        void find(std::string name,result* r,resty* res){
             for(NS& it : inline_nss){try {find(name,r,res) ;return; }                catch (const NameNotFound e){}}
             try { pri::get<NS*>(*res)=find<VarDecl,&NS::nss>(name);*r=result::rVarDecl;return;}          catch (const NameNotFound<NS>& e){}
             try { pri::get<VarDecl*>(*res)=find<NS,&NS::vars>(name);*r=result::rNS;return;}         catch (const NameNotFound<VarDecl>& e){}
@@ -241,7 +254,7 @@ using  block =pri::deque<funcvar>;
 
         NS* findNs(std::string name) {return find<NS,&NS::nss>(name);}
         
-        FuncDecl& findFunc(std::string s,pri::deque<expr<q>>& args){
+        FuncDecl& findFunc(std::string s,pri::deque<expr>& args){
             for(FuncDecl& f : funcs){
                 if(f==s and  (args <= f)){return f;}
             }
@@ -252,105 +265,65 @@ using  block =pri::deque<funcvar>;
         operator std::string(){return this->name;}
         
     };
-    using tyty = typename std::conditional<temp::meta==q,accMember_list<q> , type<temp::inst>*>::type;
+    using tyty = accMember_list<temp::meta> ;
     
     struct VarDecl : public  Qualifiable<qExtern,qConst,qin,qout,qflat,qConstExpr,qStatic>{
         
-        tyty tp;std::string name;size_t refNum;size_t ptrNum;
-        bool memberPtr;value<q> vl;
-        bool Default;expr<q> DefaultValue;
+        tyty tp;std::string name;size_t refNum=0;size_t ptrNum=0;
+        bool memberPtr;tyty ptrmem;// In case of ptrToMember or funcPtr
+        bool Default;expr DefaultValue;
         bool isPtr(){return ptrNum>0;}
         bool isRef(){return refNum<0;}
         bool isURef(){return refNum==2;}
         VarDecl() = default;
-        VarDecl(type<q>& _tp){*this=VarDecl();}
-        VarDecl(tyty& tpp,std::string n , size_t r , size_t p):tp(tpp),name(n),refNum(r),ptrNum(p)  {}
+        VarDecl(tyty& _tp) : tp(_tp){};
+        VarDecl(value& _vl) : vl(_vl){};
+        VarDecl(tyty& tpp, std::string n , size_t r=0 , size_t p=0):tp(tpp),name(n),refNum(r),ptrNum(p){};
+        VarDecl(tyty& tpp,tyty p ,std::string n , size_t r=0 , size_t p=0):tp(tpp),ptrmem(p),name(n),refNum(r),ptrNum(p){};
     };
     
     struct arg_list : public pri::deque<VarDecl>{bool pack;};
 
-    struct Spec {
-        param_list<temp::meta> plist;
-        param_list<temp::inst> specplist;
-    };
-    template <typename SpecT>
-    struct specTree {
-            template <temp Q>
-            struct specN {
-                SpecT t;
-                param<Q> prm;
-                specN<temp::meta>* Metas;
-                pri::deque<specN<temp::inst>> Insts;
-                SpecT& get(){return t;}
-                bool operator==(param<temp::inst>& p){return prm==p;}
-                ~specN(){delete Metas;Insts.clear();}
-            };
-        specN<temp::meta> tree;
-        param_list<prms> plist;
-    struct ptrSpec{
-        private:
-        bool Meta;
-        pri::variant<specN<temp::meta>*,specN<temp::inst>*> ptr; 
-        public:
-        
-        template <temp Qt>
-        using retty=typename std::conditional<Qt==temp::meta,specN<temp::meta>,pri::deque<specN,temp::inst>>::type; 
-        SpecT& getSpec(){
-            if(Meta){return pri::get<specN<temp::meta>*>(ptr)->t;}
-            return pri::get<specN<temp::inst>*>(ptr)->t;
-        };
-        template <temp Qt>
-        retty<Qt>& get(){
-                    if(Meta){return &pri::get<specN<Qt>*>(ptr)->Metas;}
-                      else {return pri::get<specN<Qt>*>(ptr)->Insts};}
-        template <temp Qt>
-        void update(specN<Qt>* p){if(Qt==temp::meta){Meta=true;>}else{Meta=false;}
-            pri::get<specN<Qt>*>(ptr)=p;
-            }
-        }
-    
-        void insert(SpecT& ref){// TODO pack support
-            ptrSpec cur;cur.update(&tree); 
-            bool pM =false;
-            auto proc = [&](){
-                if(cur.Meta){pri::get<specN<temp::meta>*>(cur.ptr)=pri::get<specN<temp::meta>*>(cur.ptr)->Metas;}
-                else {pri::get<specN<temp::meta>*>(cur.ptr)=pri::get<specN<temp::inst>*>(cur.ptr)->Metas;}
-            };
-            for(param<temp::inst>& p : ref.specplist){
-                pM=false;
-                for(param<temp::meta>& r: ref.plist){if(r==p){proc();pM=true;break;};}
-                if(!pM){
-                    for(specN<temp::inst>& r : cur.get<temp::inst>() ){
-                        if(ref==r){cur.update(&cur.get<temp::inst>());break;}
-                    };
-                };
-            };
-            cur.getSpec()=ref;
-        };
-        void push(param_list<temp::meta>& ptemp,param_list<temp::inst>&& plist)
-        void get( param_list<temp::inst>&& plist){
-            for(param<temp::inst>& it : plist) {
 
-            };
+    template <typename SpecT>
+    struct SpecIncl {
+        using ty = SpecT;
+        struct specN {
+            ty t;
+            param_list<temp::meta> tprms;
+            param_list<temp::inst> spec;
+            ty& get(){return t;}
+            bool operator==(param_list<temp::inst>& p){return spec==p;}
+            specN(param_list<temp::meta>& pr,param_list<temp::inst&& PR):tprms(pr), spec(PR){};
+            specN() = default;
         };
-        
-        SpecT& getFirst(){return t;};
+        pri::deque<specN> specs;
+        param_list<temp::meta> plist;
+
+
+        specN* push(param_list<temp::meta>& m, param_list<temp::inst>& ptemp){
+            param_list<temp::meta>::iter it = ptemp.begin();
+            pri::deque<specN<temp::inst>>* ptr ;
+            for(specN& it : specs) {
+                if(it==ptemp){throw AlreadyDefdSpec<SpecT>();}
+            };
+            specs.emplace_back(m,ptemp);
+        };
+        SpecT& get( param_list<temp::inst>& plist){
+            specN<temp::meta>* tr=tree;
+            param_list<temp::inst>::iter it = plist.begin();
+            for(;it!=plist.end();++it) {
+                for(specN<temp::inst>& i :  tr->Insts){
+                    if(i->prm==*it){tr=&i;break;}
+                }
+            };
+            return tr->t;
+        };
+        SpecT& operator[](param_list<temp::inst>& plist){return get(plist);};
+        SpecT& top(){return tree.get();};
         delete specTree();
         specTree() = default; 
-        specTree(param_list& plt) {plist=plt;};
-    };
-    template <typename T>
-    struct SpecTreeIncl  {
-        using specty = T;
-        bool Template ; param_list<q> prms;
-        specTree<T> specs;
-        template <temp q>
-        void _push(T&& rval,param_list plist={});
-        
-        T& get(param_list<temp::inst> plist={}){
-            if(!Template){return specs.getFirst();}
-
-        }  ;
+        specTree(param_list& plt) {plist=plt;specs.push_back(specN())};
     };
 
     struct FuncDef :  public  Qualifiable<qExplicit,qFinal,qVirtual,qConstExpr,qOverride,qStatic> {
@@ -358,43 +331,46 @@ using  block =pri::deque<funcvar>;
         arg_list args;block body;
     };
 
-    struct OperatorDecl : public  Qualifiable<qExtern,qExplicit,qFinal,qConstExpr,qOverride,qStatic>, public SpecTreeIncl<FuncDef> {
+    struct Operator : public  Qualifiable<qExtern,qExplicit,qFinal,qConstExpr,qOverride,qStatic>, public SpecIncl<FuncDef> {
         attrib_list atlist;
         bool typeConv;
         tyty opv;op::ty opt; 
-        using tType =typename std::conditional<temp::meta==q,pri::deque<OperatorDef>,OperatorDef>::type ;
         arg_list<temp::inst> args;
-        tType defs;
         tyty rett;
-        
         template <op::ty oT>
         struct requ {static constexpr size_t argc_inclass = 1;static constexpr size_t argc_outclass = 2;};
         template <> requ <op::ty::opnot> {static constexpr size_t argc_inclass = 0;static constexpr size_t argc_outclass = 1;}
     };
-
-    struct ConstructorDef : public Qualifiable<qExplicit,qConstExpr,qOverride,qStatic> {
+    using init_args = pri::deque<expr>;
+    struct init {
+        init_args args;
+        VarDecl* member;
+        bool brace=false;
+        init() = default;
+        init(VarDecl* vdecl,bool&& br,arg_list&& arg);
+    };  
+    struct Constructor  : public Qualifiable<qExplicit,qConstExpr,qOverride,qStatic,qNoexcept>, SpecIncl<ConstructorDef> {
         attrib_list atlist;
-        arg_list args; block body;
+        // param_list<temp::meta> plist;
+        arg_list args;pri::deque<init> init_list; block body;  bool Default=  false;
+        void get(arg_list& argl,param_list<temp::inst>& pl){}
+        void get(param_list<temp::inst>& pl){}
+        
+
+        ConstructorDecl() = default;
     };
-    struct ConstructorDecl  : public Qualifiable<qExplicit,qConstExpr,qOverride,qStatic>, SpecTreeIncl<ConstructorDef> {
+    struct DefType : Qualifiable<qExtern>{ 
         attrib_list atlist;
-        arg_list args; block body;
-    };
-    struct DefType { 
-        attrib_list atlist;
-        type<q> t;
-        bool Extern;
-
-
-        void addType(type<q>& argt){t.variables.push_back(argt);};
-        type<q>& findName(std::string s){
-            for(type<q>& it : t.dependnents){if(it.name==s){return it;}};
-            for(type<q>& it : t.variables){if(it.name==s){return it;}};
-            for(type<q>& it : t.methods){if(it.name==s){return it;}};
-            for(type<q>& it : t.constructors){if(it.name==s){return it;}};
+        type<temp::meta> t;
+        void addType(type<temp::meta>& argt){t.variables.push_back(argt);};
+        type<temp::meta>& findName(std::string s){
+            for(type<temp::meta>& it : t.dependnents){if(it.name==s){return it;}};
+            // for(type<temp::inst>& it : t.variables){if(it.name==s){return it;}};
+            for(type<temp::meta>& it : t.methods){if(it.name==s){return it;}};
+            for(type<temp::meta>& it : t.constructors){if(it.name==s){return it;}};
             throw  NameNotFound();
         };
-        type<q>& get(){
+        type<temp::meta>& get(param_list<temp::inst> pl){// TODO
             if constexpr (q==temp::meta){
             if(obj->t.tempTy){
                 if(ps.size()!=obj->t.prms.size()){err::err<err::t::template_param_list_incomplete>()}
@@ -413,24 +389,16 @@ using  block =pri::deque<funcvar>;
         }
         else {return *this;}
         }
+        DefType(std::string name) : t(name) {}
     };
         
-    struct DeclType : Qualifiable<qExtern>,public SpecTreeIncl<DefType> {
+    struct DeclType : Qualifiable<qExtern>,public SpecIncl<DefType> {
         std::string name;
-        specTree<DefType> specs;
+        bool isUnion=false;bool anon=false;
+        DeclType(std::string n) : name(n){}
     };
-    struct DefUnion {
-        type<q> t;
-    };
-    struct DeclUnion : SpecTreeIncl<DefType> {
-        bool anonymous;
-        std::string name;
-        type<q> t;
-    } ;
-
-
-        struct While{Expr condition;block body;}
-        struct For {Expr init; Expr condition;Expr incr;
+    struct While{Expr condition;block body;}
+    struct For {Expr init; Expr condition;Expr incr;
             block body;
             attrib_list atlist;
     };
@@ -442,14 +410,14 @@ using  block =pri::deque<funcvar>;
         decltype(*this) operator=(For& rhs){vardecl=rhs.init;return *this;}
     };
     struct Do : public While{bool d;};
-    struct Case {expr<q> ex;block body;
-        Case(expr<q>&& e){ex=e;}
+    struct Case {expr ex;block body;
+        Case(expr&& e){ex=e;}
     };
     
     struct Switch : Qualifiable<qConstExpr> {
         bool assign;value<temp::inst> vl;
         pri::deque<Case> css;block dflt; 
-        expr<q> ex; bool Init;expr<q> inexpr;
+        expr ex; bool Init;expr inexpr;
         block body;
                 attrib_list atlist;
 
@@ -460,7 +428,7 @@ using  block =pri::deque<funcvar>;
                 attrib_list atlist;bool Else=false;bool If=false;
         pri::deque<Else*> Elses;
 
-        If(expr<q> e) : condition(e) {}
+        If(expr e) : condition(e) {}
     };
     struct Else {
         pri::variant<If*,Else*> IfS;bool elIf;
@@ -471,12 +439,12 @@ using  block =pri::deque<funcvar>;
         Else(ElseIf& If) : elIf(true) {pri::get<ElseIf*>(Ifs)=&If;}
     };
     
-    struct FuncDecl : public  public  Qualifiable<qExplicit,qVirtual,qFinal,qConstExpr,qOverride,qStatic>,public SpecTreeIncl<FuncDef> {
+    struct FuncDecl : public  public  Qualifiable<qExplicit,qVirtual,qFinal,qConstExpr,qOverride,qStatic>,public SpecIncl<FuncDef> {
         
-        std::string name
-        param_list<q> prms;
-        using tyret = std::conditional<temp::meta==q,expr<temp::meta>,type<q>*>::type;
-        using tycond = expr<q> ; tycond pre; tycond post ; // C++ 26
+        std::string name;
+        param_list prms;
+        using tyret = std::conditional<temp::meta==q,expr<temp::meta>,type*>::type;
+        using tycond = expr ; tycond pre; tycond post ; // C++ 26
         
         tyty ret;
         arg_list args;
@@ -486,8 +454,8 @@ using  block =pri::deque<funcvar>;
             FuncDef d;d.prms=prms;d.ret = ret;d.args=args;
             return d;
         };
-        bool operator<=(pri::deque<expr<q>> ar){
-            pri::deque<expr<q>>::iter ita=ar.begin();
+        bool operator<=(pri::deque<expr> ar){
+            pri::deque<expr>::iter ita=ar.begin();
             arg_list::iter itt=args.begin();
             for(;ita!=ar.end() and itt != args.end();){
                 if(ita->getType() != itt->tp ){return false;}
@@ -508,19 +476,17 @@ using  block =pri::deque<funcvar>;
             };
             return true;
         };
-        bool operator==(pri::deque<type<q>*> argts){
+        bool operator==(pri::deque<type<temp::meta>*> argts){// TODO
             if(args.size()!=args.size()){return false;}
             auto it = args.begin();
-            for(type<q>*&  ite : argts){
+            for(type<meta>*&  ite : argts){
                 if(*ite!=it->tp){return false;}
                 ++it;
             };
             return true;
         };
-        varDecl<q> searchArg(sdt::string n){
-            for(varDecl<q> it : args){
-                if(it.name)
-            }
+        VarDecl& searchArg(sdt::string n){
+            for(varDecl& it : args){if(it.name==n){return it;}}
         };
     };
     struct Using {
@@ -531,21 +497,18 @@ using  block =pri::deque<funcvar>;
         tyty expr;
         attrib_list atlist;
 
-        type<q> get(){};
+        type<temp::> get(param_list<temp::inst> pl={}){};
     };
     struct Concept { // C++20
-        param_list<q> plist;
+        param_list plist;
 
     };
 
     struct TypeDef {
-        tyty tp;type<q>* Tt;
+        tyty tp;bool anon ;type<temp::inst> anontp;
         std::string name ;
-        type<q> get(){};        
         TypeDef(type<temp::inst> ty,std::string n) : t(ty),name(n) {}
     };
-    // template <>
-    // struct LayoutTy
     struct Layout {
         enum stand {std430,std140};
         enum ty {location,binding};
@@ -561,21 +524,19 @@ using  block =pri::deque<funcvar>;
         Layout() = default;
     };
     struct Try{
-        block<q> body;
+        block body;
         pri::deque<Catch> catches;
     };
     struct Catch  {
     VarDecl var;
-    block<q> body;
+    block body;
 attrib_list atlist;
     };
     struct  Throw {
-        expr<q> val;
-        Throw(expr<q>&& _val)  {val=_val;}
+        expr val;
+        Throw(expr&& _val)  {val=_val;}
     };
-
     
-        
     accSpec acc=accSpec::Public;
     using allvar =pri::variant<block,Layout,NS,FuncDecl,FuncDef,VarDecl,Using,TypeDef,Enum,DeclType,DefType,Expr,While,For,Do,ForRange,Switch,Case,Default,
     If,Else,ElseIf,Return,Try,Catch,Throw>;
@@ -599,8 +560,8 @@ attrib_list atlist;
     template <> bool eval<qual::qFriend>(){if(!isOneOf<stmtty::FuncDef,stmtty::TypeDecl>(t)){return false;}else{return true;}};
     template <> bool eval<qual::qExplicit>(){if(!isOneOf<stmtty::FuncDef>(t)){return false;}else{return true;}};
     template <> bool eval<qual::qVirtual>(){if(!isOneOf<stmtty::FuncDef>(t)){return false;}else{return true;}};
-    template <> bool eval<qual::qFinal>(){if(!isOneOf<stmtty::FuncDef,OperatorDecl>()){return false;}else{;return true;}};
-    template <> bool eval<qual::qNoexcept>(){if(!isOneOf<stmtty::FuncDecl,OperatorDecl>()){return false;}else{return true;}}
+    template <> bool eval<qual::qFinal>(){if(!isOneOf<stmtty::FuncDef,Operator>()){return false;}else{;return true;}};
+    template <> bool eval<qual::qNoexcept>(){if(!isOneOf<stmtty::FuncDecl,Operator>()){return false;}else{return true;}}
     bool push_qual(qual ql){
         switch(ql){
 case qual::qStatic :{return eval<qual::qStatic>();}
@@ -645,20 +606,11 @@ template<>struct getTy<stmtty::eVarDecl>{using ty=VarDecl;}
 template<>struct getTy<stmtty::eUsing>{using ty=Using;}
 template<>struct getTy<stmtty::eTypeDef>{using ty=TypeDef;}
 template<>struct getTy<stmtty::eLayout>{using ty=Layout;}
-
+template<>struct getTy<stmtty::eOperator>{using ty=Operator;}
         
     template <stmtty Ty>
     getTy<Ty>::ty get(){return pri::get<getTy<Ty>::ty>(var);};
-  
-    // struct fileRange  {
-    //     size_t filePos;
-    //     size_t linestart,lineend;
-    //     std::filesystem::path pathFile;
-    //     fileRange(size_t s,size_t e,std::filesystem::path pth) : linestart(s) , lineend(e) pathFile(path) {}  
-    // };
-    // std::enable_if<q==temp::meta,fileRange>::type range;
     std::enable_if<q==temp::meta,parList>::type paramters;
-
     template <typename StmtT>stmtty getTy();
 template<> void getTy<block>(){return stmtty::Block;}
 template<> void getTy<NS>(){return stmtty::NS;}

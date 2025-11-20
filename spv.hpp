@@ -3,6 +3,19 @@ namespace spv {
 
 
 
+
+
+template <size_t opcode, class _Results,class _Operands,size_t WordCount ,bool varWordCount=false >
+struct instruction {
+    static constexpr size_t opc = opcode;
+    static constexpr class Results = _Results;
+    static constexpr class Operands = _Operands;
+    static constexpr size_t size_t wordC= WordCount;
+    static constexpr bool varWordC = varWordCount; 
+};
+
+
+const size_t magic = 0x07230203; 
 enum SourceLanguage{
 Unknown=0,
 ESSL=1,
@@ -18,7 +31,7 @@ WGSL=10,
 Slang=11,
 Zig=12,
 Rust=13
-}
+};
 enum ExecutionModel{
 Vertex=0,
 TessellationControl=1,
@@ -43,18 +56,17 @@ enum AddressingModel{
     Physical32=1,
     Physical64=2,
     PhysicalStorageBuffer64 /*(PhysicalStorageBuffer64EXT)*/=5348
-}
+};
 enum MemoryModel{
     Simple=0,
     GLSL450=1,
     OpenCL=2,
-    Vulkan (VulkanKHR)=3
-}
+    Vulkan =3//(VulkanKHR)
+};
 enum ExecutionMode {
-
-    Invocations=0,
-    SpacingEqual=1,
-    SpacingFractionalEven=2,
+Invocations=0,
+SpacingEqual=1,
+SpacingFractionalEven=2,
 SpacingFractionalOdd=3,
 VertexOrderCw=4,
 VertexOrderCcw=5,
@@ -150,8 +162,7 @@ RegisterMapInterfaceINTEL=6160,
 NamedBarrierCountINTEL=6417,
 MaximumRegistersINTEL=6461,
 MaximumRegistersIdINTEL=6462,
-NamedMaximumRegistersINTEL=6463}
-
+NamedMaximumRegistersINTEL=6463};
 enum StorageClass{
 UniformConstant=0,
 Input=1,
@@ -180,8 +191,7 @@ HitObjectAttributeNV=5385,
 TaskPayloadWorkgroupEXT=5402,
 CodeSectionINTEL=5605,
 DeviceOnlyINTEL=5936,
-HostOnlyINTEL=5937}
-
+HostOnlyINTEL=5937};
 enum DIm{
 _1D=0,
 _2D=1,
@@ -190,18 +200,17 @@ Cube=3,
 Rect=4,
 Buffer=5,
 SubpassData=6,
-TileImageDataEXT=4173}
+TileImageDataEXT=4173};
 enum SamplerAddressingMode{
     None=0,
 ClampToEdge=1,
 Clamp=2,
 Repeat=3,
-RepeatMirrored=4}
-
+RepeatMirrored=4};
 enum SamplerFilterMode{
 Nearest=0,
 Linear=1
-}
+};
 enum ImageFormat{
     
 Unknown=0,
@@ -245,7 +254,8 @@ Rg8ui=37,
 R16ui=38,
 R8ui=39,
 R64ui=40,
-R64i=41}
+R64i=41
+};
 enum  ImageChannelOrder {
     
 R=0,
@@ -268,7 +278,7 @@ sRGBx=16,
 sRGBA=17,
 sBGRA=18,
 ABGR=19
-}
+};
 enum ImageChannelDataType {
 
 
@@ -297,10 +307,8 @@ UnsignedInt10X6EXT=22,
 UnsignedInt12X4EXT=23,
 UnsignedInt14X2EXT=24,
 UnormInt12X4EXT=25,
-UnormInt14X2EXT=26}
+UnormInt14X2EXT=26};
 enum ImageOperands {
-
-
 None=0,
 Bias=1,
 Lod=2,
@@ -318,7 +326,7 @@ SignExtend=1000,
 ZeroExtend=2000,
 Nontemporal=4000,
 Offsets=10000
-}
+};
 enum FPFastMathMode{
 
 
@@ -331,24 +339,24 @@ Fast=0x10,
 AllowContract =0x10000,/
 AllowReassoc =0x20000,/
 AllowTransform=0x40000
-}
+};
 enum FPRoundingMode {
 
     RTE=0,
     RTZ=1,
     RTP=2,
     RTN=3
-}
+};
 enum  LinkageType{
     Export=0,
     Import=1,
-    LinkOnceODR=2}
+    LinkOnceODR=2};
 enum AccessQualifier {
 
     ReadOnly=0,
     WriteOnly=1,
     ReadWrite=2
-}
+};
 enum  FunctionParameterAttribute{
     Zext=0,
     Sext=1,
@@ -359,7 +367,7 @@ enum  FunctionParameterAttribute{
     NoWrite=6,
     NoReadWrite=7,
     RuntimeAlignedINTEL=5940
-}
+};
 enum Decoration{
 RelaxedPrecision=0,
 SpecId=1,
@@ -505,7 +513,7 @@ ImplementInRegisterMapINTEL=6191,
 ConditionalINTEL=6247,
 CacheControlLoadINTEL=6442,
 CacheControlStoreINTEL=6443
-}
+};
 enum Builtin {
 
 
@@ -635,12 +643,12 @@ HitSphereRadiusNV=5420,
 HitLSSRadiiNV=5421,
 ClusterIDNV=5436,
 CullMaskKHR=6021
-}
+};
 enum SelectionControl{
     None=0x0,
     Flatten=0x1,
     DontFlatten=0x2
-}
+};
 enum LoopControl{
     None=0x0,
     Unroll=0x1,
@@ -662,7 +670,7 @@ enum LoopControl{
     NoFusionINTEL=0x800000,
     LoopCountINTEL=0x1000000,
     MaxReinvocationDelayINTEL=0x2000000
-}
+};
 enum FunctionControl {
     None=0x0,
     Inline=0x1,
@@ -670,7 +678,7 @@ enum FunctionControl {
     Pure=0x4,
     Const=0x8,
     OptNoneEXT=0x10000,// (OptNoneINTEL)
-}
+};
 enum MemorySemantics_id{
     None=0x0,//(Relaxed)
     Acquire=0x2,
@@ -687,7 +695,7 @@ enum MemorySemantics_id{
     MakeAvailable=0x2000,//(MakeAvailableKHR)
     MakeVisible=0x4000,//(MakeVisibleKHR)
     Volatile=0x8000
-}
+};
 enum  MemoryOperands{
     None=0x0,
     Volatile=0x1,
@@ -698,7 +706,7 @@ enum  MemoryOperands{
     NonPrivatePointer =0x20,//(NonPrivatePointerKHR)
     AliasScopeINTELMask=0x10000,
     NoAliasINTELMask=0x20000
-}
+};
 enum Scope_id{
     CrossDevice=0,
     Device=1,
@@ -707,7 +715,7 @@ enum Scope_id{
     Invocation=4,
     QueueFamily =5,//(QueueFamilyKHR)
     ShaderCallKHR=6
-}
+};
 enum GroupOperation{
     Reduce=0,
     InclusiveScan=1,
@@ -716,12 +724,12 @@ enum GroupOperation{
     PartitionedReduceNV=6,
     PartitionedInclusiveScanNV=7,
     PartitionedExclusiveScanNV=8
-}
+};
 enum KernelEnqueueFlags{
     NoWait=0,
     WaitKernel=1,
     WaitWorkGroup=2
-}
+};
 enum KernelProfilingInfo {
     None=0,
     CmdExecTime=1
@@ -1000,7 +1008,7 @@ TensorFloat32RoundingINTEL=6425,
 MaskedGatherScatterINTEL=6427,
 CacheControlsINTEL=6441,
 RegisterLimitsINTEL=6460,
-BindlessImagesINTEL=6528}
+BindlessImagesINTEL=6528};
 enum RayFlags{
 None=0,
 OpaqueKHR=1,
@@ -1013,19 +1021,19 @@ CullOpaqueKHR=40,
 CullNoOpaqueKHR=80,
 SkipTrianglesKHR =100,//SkipBuiltinPrimitivesNV
 SkipAABBsKHR=200,
-ForceOpacityMicromap2StateEXT=400}
+ForceOpacityMicromap2StateEXT=400};
 enum RayQueryIntersection {
 RayQueryCandidateIntersectionKHR=0,
-RayQueryCommittedIntersectionKHR=1}
+RayQueryCommittedIntersectionKHR=1};
 enum RayQueryCommittedType {
     RayQueryCommittedIntersectionNoneKHR=0,
     RayQueryCommittedIntersectionTriangleKHR=1,
     RayQueryCommittedIntersectionGeneratedKHR=2
-}
+};
 enum RayQueryCandidateType{
     RayQueryCandidateIntersectionTriangleKHR=0,
     RayQueryCandidateIntersectionAABBKHR=1
-}
+};
 enum FragmentShadingRate {
     None=0x0,
     Vertical2Pixels=0x1,
@@ -1036,7 +1044,7 @@ enum FragmentShadingRate {
 enum FPDenormMode {
     Preserve=0,
     FlushToZero=1
-}
+};
 enum FPOperationMode {
     IEEE=0,
     ALT=1
@@ -1050,16 +1058,16 @@ enum QuantizationMode{
     RND_MIN_INF=5,
     RND_CONV=6,
     RND_CONV_ODD=7
-}
+};
 enum OverflowMode{
     WRAP=0,
     SAT=1,
     SAT_ZERO=2,
     SAT_SYM=3
-}
+};
 enum PackedVectorFormat {
     PackedVectorFormat4x8Bit=0// (PackedVectorFormat4x8BitKHR)
-}
+};
 enum CooperativeMatrixOperands {
 
     None=0x0,
@@ -1068,7 +1076,7 @@ enum CooperativeMatrixOperands {
     MatrixCSignedComponentsKHR=0x4,
     MatrixResultSignedComponentsKHR=0x8,
     SaturatingAccumulationKHR=0x10
-}
+};
 enum CooperativeMatrixLayout {
     RowMajorKHR=1,
     ColumnMajorKHR=1,
@@ -1079,26 +1087,26 @@ enum CooperativeMatrixUse {
     MatrixAKHR=1,    
     MatrixBKHR=1,
     MatrixAccumulatorKHR=2
-}
+};
 enum CooperativeMatrixReduceMode{
 
     None=0,
     Row=1,
     Column=2,
     _2x2=4
-}
+};
 enum TensorClampMode {
 Undefined=0,
     Constant=1,
     ClampToEdge=2,
     Repeat=3,
     RepeatMirrored=4
-}
+};
 enum TensorAddressingOperands {
     None=0,
     TensorView=1,
     DecodeFunc=2
-}
+};
 enum TensorOperands {
     None=0,
     NontemporalARM=1,
@@ -1106,7 +1114,7 @@ enum TensorOperands {
     MakeElementAvailableARM=4,
     MakeElementVisibleARM=8,
     NonPrivateElementARM=10
-}
+};
 enum InitializationModeQualifier {
 InitOnDeviceReprogramINTEL=0,
     InitOnDeviceResetINTEL=1
@@ -1116,7 +1124,7 @@ enum HostAccessQualifier {
     ReadINTEL=1,
     WriteINTEL=2,
     ReadWriteINTEL=3
-}
+};
 enum LoadCacheControl {
 UncachedINTEL=0,
     CachedINTEL=1,
@@ -1130,10 +1138,10 @@ enum StoreCacheControl {
     WriteThroughINTEL=1,
     WriteBackINTEL=2,
     StreamingINTEL=3
-}
+};
 enum NamedMaximumNumberofRegister {
     AUTOINTEL=0
-}
+};
 enum MatrixMultiplyAccumulateOperands {
     None=0,
     MatrixASignedComponentsINTEL=1,
@@ -1150,18 +1158,18 @@ enum MatrixMultiplyAccumulateOperands {
     MatrixBPackedFloat16INTEL=800,
     MatrixAPackedBFloat16INTEL=1000,
     MatrixBPackedBFloat16INTEL=2000
-}
+};
 enum RawAccessChainOperands{
  None=0x0,
 RobustnessPerComponentNV=0x1,
 RobustnessPerElementNV=0x2
-}
+};
 enum FPEncoding {
   
     BFloat16KHR=0,
     Float8E4M3EXT=4214,
     Float8E5M2EXT=4215
-}
+};
 enum CooperativeVectorMatrixLayout {
 RowMajorNV=0,
 ColumnMajorNV=1,
@@ -1186,8 +1194,7 @@ enum CooperativeVectorMatrixComponentType{
     UnsignedInt8PackedNV=1000491001,
     FloatE4M3NV=1000491002,
     FloatE5M2NV=1000491003
-}
-
+};
 /// INSTRUCTIONS
 enum MiscellaneousInstructions {
     OpNop=0,//1
@@ -1208,7 +1215,7 @@ OpString=7,//=3+var,
 OpLine=8,//=4,
 OpNoLine=317,//=1,
 OpModuleProcessed=330//=2+var
-}
+};
 enum AnnotationInstructions {
     OpDecorate=71//=3+var,
     OpMemberDecorate=72//=4+var,
@@ -1218,14 +1225,14 @@ enum AnnotationInstructions {
     OpDecorateId=332//=3+var,
     OpDecorateString=5632//=4+var, (OpDecorateStringGOOGLE)
     OpMemberDecorateString=5633//=5+var, (OpMemberDecorateStringGOOGLE)
-}
+};
 enum ExtensionsInstructions {
     OpExtension=10,//=2+var
     OpExtInstImport=11,//=3+var
     OpExtInst=12,//=5+var
 OpExtInstWithForwardRefsKHR=4433,//=5+var
 OpConditionalExtensionINTEL=6248//=3+var
-}
+};
 enum Mode_SettingInstructions{
     OpMemoryModel=14,//=3//
     OpEntryPoint=15,//=4//
@@ -1235,7 +1242,7 @@ enum Mode_SettingInstructions{
     OpConditionalEntryPointINTEL=6249,//=5//
     OpConditionalCapabilityINTEL=6250,//=3//
 
-}
+};
 enum Type_DeclarationInstructions
 {
     OpTypeVoid=19,//=2
@@ -1275,7 +1282,7 @@ OpTypeTensorViewNV=5371,//=4+var,
 OpTypeBufferSurfaceINTEL=6086,//=3,
 OpTypeStructContinuedINTEL=6090,//=1+var,
 OpTypeTaskSequenceINTEL=6199//=2
-}
+};
 enum Constant_CreationInstructions {
 OpConstantTrue=41,//=3,
 OpConstantFalse=42,//=3,
@@ -1295,7 +1302,7 @@ OpSpecConstantCompositeContinuedINTEL=6092,//=1+var,
 OpSpecConstantTargetINTEL=6251,//=4+var,
 OpSpecConstantArchitectureINTEL=6252,//=7,
 OpSpecConstantCapabilitiesINTEL=6253//=3+var
-}
+};
 enum MemoryInstructions{
     OpVariable=59,//=4+var,
 OpImageTexelPointer=60,//=6,
@@ -1328,14 +1335,14 @@ OpCooperativeMatrixStoreTensorNV=5368,//=6,
 OpRawAccessChainNV=5398,//=7+var,
 OpMaskedGatherINTEL=6428,//=7,
 OpMaskedScatterINTEL=6429//=5
-}
+};
 enum FunctionInstructions {
 OpFunction=54,//=5
 OpFunctionParameter=55,//=3
 OpFunctionEnd=56,//=1
 OpFunctionCall=57,//=4+var
 OpCooperativeMatrixPerElementOpNV=5369//=5+var
-} 
+};
 
 enum ImageInstructions {
 OpSampledImage=86,//=5,
@@ -1408,7 +1415,7 @@ OpCooperativeMatrixTransposeNV=5390,//=4,
 OpConvertFToBF16INTEL=6116,//=4,
 OpConvertBF16ToFINTEL=6117,//=4,
 OpRoundFToTF32INTEL=6426//=4
-}
+};
 enum CompositeInstructions {
 OpVectorExtractDynamic=77,//=5,
 OpVectorInsertDynamic=78,//=6,
@@ -1462,7 +1469,7 @@ OpUDotAccSat=4454,//=6+var
 OpSUDotAccSat=4455,//=6+var 
 OpCooperativeMatrixMulAddKHR=4459,//=6+var
 OpCooperativeMatrixReduceNV=5366//=6
-}
+};
 enum BitInstructions {
 OpShiftRightLogical=194//=5,
 OpShiftRightArithmetic=195//=5,
@@ -1477,7 +1484,7 @@ OpBitFieldUExtract=203//=6,
 OpBitReverse=204//=4,
 OpBitCount=205//=4,
 OpBitwiseFunctionINTEL=6242//=7
-}
+};
 enum RelationalAndLogicalInstructions {
 OpAny=154,//=4
 OpAll=155,//=4
@@ -1517,10 +1524,7 @@ OpFOrdLessThanEqual=188,//=5
 OpFUnordLessThanEqual=189,//=5
 OpFOrdGreaterThanEqual=190,//=5
 OpFUnordGreaterThanEqual=191,//=5
-
-
-}
-
+};
 enum  DerivativeInstructions {
 OpDPdx=207,//=4,
 OpDPdy=208,//=4,
@@ -1531,7 +1535,7 @@ OpFwidthFine=212,//=4,
 OpDPdxCoarse=213,//=4,
 OpDPdyCoarse=214,//=4,
 OpFwidthCoarse=215//=4
-}
+};
 enum ControlFlowInstructions {
     OpPhi=245,//=3+var
     OpLoopMerge=246,//=4+var
@@ -1548,8 +1552,7 @@ enum ControlFlowInstructions {
     OpLifetimeStop=257,//=3
     OpTerminateInvocation=4416,//=1
     OpDemoteToHelperInvocation=5380//=1 
-}
-
+};
 enum AtomicInstructions {
 OpAtomicLoad=227,//=6
 OpAtomicStore=228,//=5
@@ -1572,7 +1575,7 @@ OpAtomicFlagClear=319,//=4
 OpAtomicFMinEXT=5614,//=7
 OpAtomicFMaxEXT=5615,//=7
 OpAtomicFAddEXT=6035//=7
-}
+};
 enum PrimitiveInstructions {
 OpEmitVertex=218,//=1
 OpEndPrimitive=219,//=1
@@ -1586,7 +1589,7 @@ OpNamedBarrierInitialize=328,//=4,
 OpMemoryNamedBarrier=329,//=4,
 OpControlBarrierArriveINTEL=6142,//=4,
 OpControlBarrierWaitINTEL=6143//=4
-}
+};
 enum GroupandSubgroupInstructions {
 OpGroupAsyncCopy=259,//=9
 OpGroupWaitEvents=260,//=4
@@ -1641,7 +1644,7 @@ OpGroupBitwiseXorKHR=6405,//=6
 OpGroupLogicalAndKHR=6406,//=6
 OpGroupLogicalOrKHR=6407,//=6
 OpGroupLogicalXorKHR=6408//=6
-}
+};
 enum DeviceSideEnqueueInsturctions {
 OpEnqueueMarker=291,//=7, 
 OpEnqueueKernel=292,//=13,
@@ -1720,14 +1723,12 @@ OpGroupNonUniformQuadSwap=366,//=6,
 OpGroupNonUniformQuadAllKHR=5110,//=4,
 OpGroupNonUniformQuadAnyKHR=5111,//=4,
 OpGroupNonUniformPartitionNV=5296//=4
-}
-
+};
 enum TensorInstructions {
     OpTensorReadARM=4164,//=5+var
     OpTensorWriteARM=4165,//=4+var
     OpTensorQuerySizeARM=4166//=5+var
-}
-
+};
 enum GraphInstructions {
 OpGraphConstantARM=4181,//=4,
 OpGraphEntryPointARM=4182,//=3,
@@ -1735,7 +1736,7 @@ OpGraphARM=4183,//=3,
 OpGraphInputARM=4184,//=4,
 OpGraphSetOutputARM=4185,//=3,
 OpGraphEndARM=4186//=1
-}
+};
 enum ReservedInstructions {
 OpTraceRayKHR=4445,//=12,
 OpExecuteCallableKHR=4446,//=3,
@@ -1884,6 +1885,5 @@ OpTaskSequenceCreateINTEL=6163,//=8,
 OpTaskSequenceAsyncINTEL=6164,//=2+var
 OpTaskSequenceGetINTEL=6165,//=4,
 OpTaskSequenceReleaseINTEL=6166//=2
-}
-
-}
+};
+};

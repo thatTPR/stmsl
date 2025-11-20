@@ -78,6 +78,10 @@ namespace stmsl
 
     struct DeclarationOutsideOfScope : Warning ;
 
+    
+    struct Redefinition : Error ;
+    struct Redeclaration : Error ;
+    struct DeclarationOutsideScope : Error;
     template <typename T=ast<temp::meta>>
     struct NameNotFound : public std::exception {
         std::string msg;
@@ -111,9 +115,12 @@ public:
     };
     using ParamMismatch = ValErr<param_list<temp::inst>>;
     using MemberAccess = ValErr<resty>;
+    template <typename SpecT>
+    using AlreadyDefdSpec = ValErr<SpecT>
 
+    using fileNotFound = ValErr<std::string>;
 
-
+// TODO write exceptions and errors
     
 struct _dir_ {
     std::vector<std::filesystem::path> arr;
