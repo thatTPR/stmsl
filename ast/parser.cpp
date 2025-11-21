@@ -1446,6 +1446,21 @@ return res;
                 }
             }
             else {
+                if(OneOfLex<lex::ty::lbrace>()){
+                    nextTOK();
+                    if(!cast->strcts.empty()){
+                        stmt::DefType* cur  = &cast->strcts.back();
+                        cast->pushStmt<stmt::DeclType>(stmt::DeclType());
+                        cur.anons.push_back(&cur->types.back());
+                    }
+                    else {
+                        stmt::NS* cur  = &cast->nss.back();
+                        cast->pushStmt<stmt::DeclType>(stmt::DeclType());
+                        cast->nss.back().anons.push_back(&nss->types.back());
+                    }
+                    for(;!OneOfLex<lex::ty::rbrace>();nextTOK()){StmtPush<true,false>();}
+                    return;
+                };
                     accMember_list accl;
                     try{accl = get_accMember_list<lex::ty::semicolon>();}
                     catch (const accMemberStop& e){
@@ -1487,8 +1502,7 @@ return res;
                                 expectErr<lex::ty::lbrace>();
                                 for(nextTOK();OneOfLex<lex::ty::rbrace>();nextTOK()){StmtPush<true,false>();}
                                 cast->strcts.pop_back();cast->curtemp.pop_back();return;
-                            }
-                            //// TODO around here
+                            };
                             stmt::DeclType* alr;
                             if(OneOfLex<lex::ty::colon>()){nextTOK();inh= getInherList<Strct>();}
                             if(OneOfLex<lex::ty::semicolon>()){
@@ -1547,7 +1561,7 @@ return res;
             res->expr = get_accMember_list<lex::ty::semicolon>();
         };        
         template <bool Strct,bool Func> 
-        void NameStmt(bool bTemp,param_list<temp::meta>& plist){ // TODO could be arr and handle comma lists;  
+        void NameStmt(bool bTemp,param_list<temp::meta>& plist){ 
             if(!OneOfLex<lex::ty::Name,lex::ty::dcolon>()) {
                 if(Func){cast->pushStmt(getExpr());return;};
                 else {err::e(*this , UnexpectedToken());}
@@ -1572,23 +1586,30 @@ return res;
                     cast->pushStmt<stmt::Expr>(ContinueExpr(ex));return;
                 }
                 else {
-                    accMember_list nm ;
-                    try {nm = get_accMember_list();}
-                    catch ( const accMemberStop& e){}
-                    if(OneOfLex<lex::ty::mul>()){
-                        nextTOK();expectErr<lex::ty::Name>();
-                        cast->pushStmt(stmt::VarDecl(acclist,nm,lexitback().u.name,refNum,ptrNum));return;
+                    for(;!OneOfLex<lex::ty::semicolon>();){
+                        accMember_list nm ;stmt::VarDecl* res;
+                        try {nm = get_accMember_list();}
+                        catch ( const accMemberStop& e){}
+                        if(OneOfLex<lex::ty::mul>()){
+                            nextTOK();expectErr<lex::ty::Name>();
+                        res=cast->pushStmt(stmt::VarDecl(acclist,nm,lexitback().u.name,refNum,ptrNum));return;
                     }
                     if(OneOfLex<lex::ty::lparen>()){func<Strct,Func>(acclist,nm,nm.back().Template,plist,nm,refNum,ptrNum);return;}
-                    
-                    if(nm.size()==1 and OneOfLex<lex::ty::semicolon,lex::ty::eq>()){
-                    stmt::VarDecl res=cast->pushStmt<stmt::VarDecl>(stmt::VarDecl()) ; 
-                    res->ptrNum=ptrNum;res->refNum=refNum;res->name =nm.back().name;
-                    acclist.globalAccess;
-                    res->tp=acclist;
-                    if(OneOfLex<lex::ty::eq>()){nextTOK();res->DefaultValue = getExpr<lex::ty::semicolon>();}
+                    if(OneOfLex<lex::ty::lbrack>()){
+                        nextTOK();
+                        if(!OneOfLex<lex::ty::rbrack>()){res->arr=true;res->arrSize=getExpr<lex::ty::rbrack>();}
                     }
-                    else err::e(*this,UnexpectedToken();)
+                    if(nm.size()==1 and OneOfLex<lex::ty::comma,lex::ty::semicolon,lex::ty::eq>()){
+                        res=cast->pushStmt<stmt::VarDecl>(stmt::VarDecl()) ; 
+                        res->ptrNum=ptrNum;res->refNum=refNum;res->name =nm.back().name;
+                        acclist.globalAccess;
+                        res->tp=acclist;
+                        if(OneOfLex<lex::ty::eq>()){nextTOK();res->DefaultValue = getExpr<lex::ty::semicolon,lex::ty::comma>();}
+                        
+                    }
+                    else {err::e(*this,UnexpectedToken();)}
+                        if(OneOfLex<lex::ty::comma>()){nextTOK();};
+                    }
                 }
         };
         

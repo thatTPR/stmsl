@@ -112,7 +112,7 @@ const type<temp::inst> bmat4x4("bmat4x4",Mat,&_Bool,4,4);
 #define INTRINSIC_TYS vec2,vec3,vec4,ivec2,ivec3,ivec4,uvec2,uvec3,uvec4,ivec2,ivec3,ivec4,bvec2,bvec3,bvec4,mat2,mat3,mat4,imat2,imat3,imat4,umat2,umat3,umat4,imat2,imat3,imat4,bmat2,bmat3,bmat4,mat2x2,mat3x2,mat4x2,imat2x2,imat3x2,imat4x2,umat2x2,umat3x2,umat4x2,imat2x2,imat3x2,imat4x2,bmat2x2,bmat3x2,bmat4x2,mat2x3,mat3x3,mat4x3,imat2x3,imat3x3,imat4x3,umat2x3,umat3x3,umat4x3,imat2x3,imat3x3,imat4x3,bmat2x3,bmat3x3,bmat4x3,mat2x4,mat3x4,mat4x4,imat2x4,imat3x4,imat4x4,umat2x4,umat3x4,umat4x4,imat2x4,imat3x4,imat4x4,bmat2x4,bmat3x4,bmat4x4
  // ShaderIntrincs
 // Trig
-const stmt::FuncDecl _acos("acos");
+const stmt::FuncDecl _acos("acos",{&_Float},{&Float},{});
 const stmt::FuncDecl _acosh("acosh");
 const stmt::FuncDecl _asin("asin");
 const stmt::FuncDecl _asinh("asinh");
@@ -171,9 +171,10 @@ const stmt::FuncDecl _unpackHalf2x16("unpackHalf2x16");
 const stmt::FuncDecl _unpackUnorm("unpackUnorm");
 // Builtin Var
 
-
+// Make This anonymous
 const stmt::VarDecl _gl_PerVertex("gl_PerVertex" ,{qual::qOut},type<temp::inst>(stmt::VarDecl(vec4,"gl_Position"),stmt::VarDecl(_Float,"gl_PointSize"),stmt::VarDecl(_Float,"gl_ClipDistance",type<temp::meta>::ty::arr)));
-const stmt::VarDecl _gl_ClipDistance("gl_ClipDistance", vec4 );
+
+const stmt::VarDecl _gl_ClipDistance("gl_ClipDistance",  );
 const stmt::VarDecl _gl_CullDistance("gl_CullDistance",);
 const stmt::VarDecl _gl_FragCoord("gl_FragCoord");
 const stmt::VarDecl _gl_FragDepth("gl_FragDepth");

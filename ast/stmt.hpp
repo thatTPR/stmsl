@@ -166,7 +166,7 @@ using funcvar = pri::variant<Expr,While,For,Do,ForRange,Switch,If,Else,ElseIf,Re
         pri::deque<VarDecl> vars;
         pri::deque<FuncDecl> funcs;
         pri::deque<Operator> operators;
-        pri::deque<DeclType> types;
+        pri::deque<DeclType> types; pri::list<DeclType*> anons;
         pri::deque<Enum> Enums;
 #ifdef CXX_C
          pri::deque<UnionDecl> unions; 
@@ -240,6 +240,9 @@ using funcvar = pri::variant<Expr,While,For,Do,ForRange,Switch,If,Else,ElseIf,Re
         };
         
         void find(std::string name,result* r,resty* res){
+            if(!anons.empty()){
+                for(stmt::DeclType* it : anons){try{it->find(name,r,res)} catch(const NameNotFound& e){continue;};return;};
+            };
             for(NS& it : inline_nss){try {find(name,r,res) ;return; }                catch (const NameNotFound e){}}
             try { pri::get<NS*>(*res)=find<VarDecl,&NS::nss>(name);*r=result::rVarDecl;return;}          catch (const NameNotFound<NS>& e){}
             try { pri::get<VarDecl*>(*res)=find<NS,&NS::vars>(name);*r=result::rNS;return;}         catch (const NameNotFound<VarDecl>& e){}
@@ -270,7 +273,7 @@ using funcvar = pri::variant<Expr,While,For,Do,ForRange,Switch,If,Else,ElseIf,Re
     
     struct VarDecl : public  Qualifiable<qExtern,qConst,qin,qout,qflat,qConstExpr,qStatic>{
         
-        tyty tp;std::string name;size_t refNum=0;size_t ptrNum=0;
+        tyty tp;std::string name;size_t refNum=0;size_t ptrNum=0;expr arrSize=0;bool arr;
         bool memberPtr;tyty ptrmem;// In case of ptrToMember or funcPtr
         bool Default;expr DefaultValue;
         
@@ -348,8 +351,11 @@ using funcvar = pri::variant<Expr,While,For,Do,ForRange,Switch,If,Else,ElseIf,Re
 
     struct FuncDef :  public  Qualifiable<qExplicit,qFinal,qVirtual,qConstExpr,qOverride,qStatic> {
         attrib_list atlist;
+        accMember_list rett;
         arg_list args;block body;
-        FuncDef(attrib_list atlist,std::vector<qual> quals,arg_list args,block body)
+        FuncDef(attrib_list _atlist,std::vector<qual> _quals,arg_list args,block _body) : atlist(_atilst),body(_body{ push(quals);}; 
+
+        FuncDef()
     };
 
     struct Operator : public  Qualifiable<qExtern,qExplicit,qFinal,qConstExpr,qOverride,qStatic>, public SpecIncl<FuncDef> {
@@ -414,7 +420,7 @@ using funcvar = pri::variant<Expr,While,For,Do,ForRange,Switch,If,Else,ElseIf,Re
         
     struct DeclType : Qualifiable<qExtern>,public SpecIncl<DefType> {
         std::string name;
-        bool isUnion=false;bool anon=false;
+        bool isUnion=false;bool anon=false; bool dependentType;
         type getType(){return top();}
         DeclType(std::string n) : name(n){}
     };
@@ -465,7 +471,7 @@ using funcvar = pri::variant<Expr,While,For,Do,ForRange,Switch,If,Else,ElseIf,Re
         std::string name;
         param_list prms;
         using tyret = std::conditional<temp::meta==q,expr<temp::meta>,type*>::type;
-        using tycond = expr ; tycond pre; tycond post ; // C++ 26
+        // using tycond = expr ; tycond pre; tycond post ; // C++ 26
         
         tyty ret;
         arg_list args;
@@ -508,6 +514,8 @@ using funcvar = pri::variant<Expr,While,For,Do,ForRange,Switch,If,Else,ElseIf,Re
             };
             return true;
         };
+
+
         FuncDecl(FuncDef&& fdef){specs.push_back(fdef);}
         VarDecl& searchArg(sdt::string n){
             for(varDecl& it : args){if(it.name==n){return it;}}

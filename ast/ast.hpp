@@ -541,7 +541,6 @@ template <temp q>
 struct type {
     static constexpr temp tempState = q;
     bool Template ;
-    bool dependentType;//Set if type is dependent of superType
     enum ty {//constructor=0,expr=1,
         vec=0,funcPtr,
         func=2,Buffer=3,strct=4,arr=5,
@@ -559,8 +558,6 @@ struct type {
     template <>struct primType<prim::Bool> {using type =bool;};
 
         
-
-    op::tyop arr[] ;
     std::string name ; 
     param_list<q> prms;
     std::enable_if<q==temp::meta,bool>::type tempTy;
@@ -617,6 +614,9 @@ struct type {
         acc_list<stmt::TypeDef> tdefs;// 
         
         acc_list<stmt::DeclType> types;// 
+
+        pri::list<accMem<stmt::DeclType>*> anons;
+
         // #ifdef CXX_C
         acc_list<stmt::Union> unions;
         // #endif CXX_C
@@ -625,7 +625,7 @@ struct type {
         acc_list<stmt::VarDecl> variables;
         
         acc_list<stmt::FuncDecl> methods;// Has type FuncDecl
-        acc_list<stmt::OperatorDecl> operators;// Has type StmtOperatorDecl
+        acc_list<stmt::Operator> operators;
         
         acc_list<stmt::Constructor> constructors; 
         stmt::block destructor;
@@ -690,6 +690,9 @@ struct type {
     };
         
     void find(std::string name,result* r,resty<q>* res ){
+        if(!anons.empty()){
+         for(stmt::DeclType* it : anons){try{it->find(name,r,res)} catch(const NameNotFound& e){continue;};return;};
+        };
         try{pri::get<stmt::DeclType*>(*res) = findWhat<stmt::DeclType>(name);return;}catch(const NameNotFound& e){}; 
         try{pri::get<stmt::VarDecl*>(*res) = findWhat<stmt::VarDecl>(name);return;}catch(const NameNotFound& e){}; 
         try{pri::get<stmt::Using*>(*res) = findWhat<stmt::Using>(name);return;}catch(const NameNotFound& e){}; 
@@ -731,6 +734,12 @@ struct type {
         return true;
     };
 
+
+    bool isFuncObj(){
+        for(accMem<Operator>& it : operators){
+            if(  (it->data.opt == op::ty::ocall )){return true;}
+        };return false;
+    };
     
     size_t alignment=1;size_t size;
     void calcAlignment(){alignment=1;
@@ -915,7 +924,7 @@ case 'q' :{return 3;};
 
 template <temp q>
 struct tyty {
-    std::conditional<q==temp::meta,accMember_listype<q>>* t;
+    std::conditional<q==temp::meta,accMember_list<q>>* t;
     size_t refN;size_t ptrN;
     bool fixArr ; 
 };
