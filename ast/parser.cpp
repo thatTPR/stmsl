@@ -1259,7 +1259,7 @@ return res;
             };
             getLytVar();
         };
-        template <bool Strct,bool Func>void _getStmt<stmt::Expr,Strct,Func>(){cast->pushStmt<stmt::Expr>(GetExpr<lex::ty::semicolon>());};
+        template <bool Strct,bool Func>void _getStmt<stmt::Expr,Strct,Func>(){cast->pushStmt<stmt::Expr>(getExpr<lex::ty::semicolon>());};
         // attrib_list _atlist ;
         template <typename StmtTy,bool Strct,bool Func>
         void getStmt(){
@@ -1547,7 +1547,7 @@ return res;
             res->expr = get_accMember_list<lex::ty::semicolon>();
         };        
         template <bool Strct,bool Func> 
-        void NameStmt(bool bTemp,param_list<temp::meta>& plist){  
+        void NameStmt(bool bTemp,param_list<temp::meta>& plist){ // TODO could be arr and handle comma lists;  
             if(!OneOfLex<lex::ty::Name,lex::ty::dcolon>()) {
                 if(Func){cast->pushStmt(getExpr());return;};
                 else {err::e(*this , UnexpectedToken());}
@@ -1751,7 +1751,11 @@ return res;
             if(OneOfLex<lex::ty::lbrace>()){res.init_list.emplace_back(r,true,getInitArgs<lex::ty::rbrace>());}
             if(OneOfLex<lex::ty::lparen>()){res.init_list.emplace_back(r,false,getInitArgs<lex::ty::rparen>());}
         };
-        void Constructor(bool bTemp,param_list<temp::meta>& plist){nextTOK();
+        void Constructor(bool bTemp,param_list<temp::meta>& plist){
+                       curPtr.push_back(lexptrback()); 
+
+            nextTOK();
+
             stmt::Constructor* res=cast->pushStmt<stmt::Constructor>(stmt::Constructor());
             if(bTemp){res->plist=plist;cast->curtemp.push_back(&res->plist)};
             if(kwFound<kw_Noexcept>()){nextTOK();}
@@ -1766,7 +1770,7 @@ return res;
                 if(OneOfKw<kw_Default>()){res->Default=true;}
                 else {err::e(*this,ExpectedKw<kw_Default>());}
                 nextTOK();
-                expectErr<lex::ty::semicolon>();return;
+                expectErr<lex::ty::semicolon>();erase();return;
             }
             if(OneOfLex<lex::ty::colon>()){
                 for(nextTOK();!OneOfLex<lex::ty::lbrace>();nextTOK()){
@@ -1781,6 +1785,24 @@ return res;
             cast->curBl.pop_back();nextTOK();
 
             if(bTemp){cast->curtemp.pop_back();}; 
+            erase()
+        };
+
+        void AsmBlock(){
+           curPtr.push_back(lexptrback()); 
+            nextTOK();expectErr<lex::ty::lparen>();
+            stmt::Asm* res = cast->pushStmt<stmt::Asm>(stmt::Asm());
+            if(OneOfLex<lex::ty::dq>()){res->strlit=lexitback().u.name;
+                for(;OneOfLex<lex::ty::colon>();nextTOK()){
+                    std::string cc;std::string re;
+                    nextTOK();if(OneOfLex<lex::ty::dq>()){cc=lexitback().u.name;nextTOK();
+                        if(OneOfLex<lex::ty::lparen>()){nextTOK();re=lexitback().u.name;nextTOK();}
+                        res->blt_seq.emplace_back(cc,re);
+                    }
+                }
+            }
+            nextTOK();expectErr<lex::ty::semicolon>();
+            erase();
         };
         #define PUBLIC_ACCESS true
         #define PRIVATE_ACCESS false
@@ -1812,6 +1834,7 @@ return res;
                 if constexpr (lang==language::cpp){while(kwFound<KW_QUAL,kw_Extern>()){nextTOK();}}
                 else if constexpr (lang ==  langauge::stmsl){while(kwFound<KW_QUAL,KW_LYTQ,kw_Layout>()){nextTOK();}}
                 stmt::param_list plist ;bool bTemp=false;
+                if(OneOfKw<kw_Asm>()){AsmBlock();}
                 if(OneOfKw<kw_Template>()){bTemp=true;
                     if constexpr (Func){err::e(*this,UnexpectedToken("Template Not allowed in function body"));}
                     nextTOK();expectErr<lex::ty::ltangle>();
@@ -1858,7 +1881,7 @@ return res;
         template <bool Strct>
         void FStmt(){Stmt<Strct,true>();};
 
-        ast<temp::inst> fromFile(std::filesystem::path pth){ curFilePath.push_back(pth);
+        ast fromFile(std::filesystem::path pth){ curFilePath.push_back(pth);
             cast=new ast();
         cwd.push(pth.parent_path());
         f.open(pth);
@@ -1867,10 +1890,12 @@ return res;
         catch (const FileEnd& e){fend=e.b;}
         if(pth.extension()==std::filesystem::path("hstmsl")){wrcph(pth,cur); }
         cwd.pop();
-        parserStack.pop();
-        return get_inst(cast);
+        
+        cast->procFinal();
+            
+        return *cast;
         };
-        ast<temp::inst> fromFile(std::string pth){filePos =0; std::filesystem::path s(pth);return fromFile(s); }
+        ast fromFile(std::string pth){filePos =0; std::filesystem::path s(pth);return fromFile(s); }
         parser() = default;
     
     }

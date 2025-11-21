@@ -100,22 +100,22 @@ template <> struct ptr<qNoexcept>{static constexpr bool Qualifiable<Qs...>::* p=
 struct stmt {
     using param_list=param_list;
     enum stmtty {
-eBlock,eNS,
-eOperator,
-eDeclType,eDefType,
-eDeclUnion,eDefUnion,
-eExpr,
-eDo,
-eWhile,eFor,eForRange,
-eSwitch,eCase,eDefault,
-eIf,eElse,eElseIf,
-eReturn,eContinue,
-eFuncDecl,eFuncDef,
-eVarDecl,
-eUsing,eTypeDef,
-eLayout,eSEnum,
-eTry,eCatch,Throw
-        
+eBlock=0,eNS=1,
+eOperator=2,
+eDeclType=3,eDefType=4,
+eDeclUnion=5,eDefUnion=6,
+eExpr=7,
+eDo=8,
+eWhile=10,eFor=11,eForRange=12,
+eSwitch=13,eCase=14,eDefault=15,
+eIf=16,eElse=17,eElseIf=18,
+eReturn=19,eContinue=20,
+eFuncDecl=21,eFuncDef=22,
+eVarDecl=23,
+eUsing=24,eTypeDef=25,
+eLayout=26,eSEnum=27,
+eTry=28,eCatch=29,Throw=30,
+eAsm=31        
     };
     stmtty t;
 struct NS;
@@ -149,8 +149,9 @@ using Enum=EnumT ;
 struct Try;
 struct Catch ;
 struct Throw;
+struct Asm;
 using  block =pri::deque<funcvar>;
-    using funcvar = pri::variant<Expr,While,For,Do,ForRange,Switch,If,Else,ElseIf,Return,Try,Catch,Throw,block>;
+using funcvar = pri::variant<Expr,While,For,Do,ForRange,Switch,If,Else,ElseIf,Return,Try,Catch,Throw,block,Asm>;
     
     struct NS {
         attrib_list atlist;
@@ -272,18 +273,38 @@ using  block =pri::deque<funcvar>;
         tyty tp;std::string name;size_t refNum=0;size_t ptrNum=0;
         bool memberPtr;tyty ptrmem;// In case of ptrToMember or funcPtr
         bool Default;expr DefaultValue;
+        
+        type getTypePtrMem(){
+            return ptrmem.back().Template ?
+            pri::get<stmt::TypeDecl*>(ptrmem.back().inst)->get(ptrmem.back().plist) : pri::get<stmt::TypeDecl*>(ptrmem.back().inst).top(); 
+
+        }
+        type getType(){
+            return tp.back().Template ?
+            pri::get<stmt::TypeDecl*>(tp.back().inst)->get(tp.back().plist) : pri::get<stmt::TypeDecl*>(tp.back().inst).top(); 
+        };
+
         bool isPtr(){return ptrNum>0;}
         bool isRef(){return refNum<0;}
         bool isURef(){return refNum==2;}
         VarDecl() = default;
+
         VarDecl(tyty& _tp) : tp(_tp){};
         VarDecl(value& _vl) : vl(_vl){};
+        constexpr VarDecl( std::string n,std::vector<qual>& quals, type&& tpp) : name(n) {
+            push(quals);
+        };
+
+        constexpr VarDecl( type<temp::inst>& tp,std::string str) : name(n) {
+            push(quals);pri::get<type<temp::meta>>()
+        };
+
         VarDecl(tyty& tpp, std::string n , size_t r=0 , size_t p=0):tp(tpp),name(n),refNum(r),ptrNum(p){};
         VarDecl(tyty& tpp,tyty p ,std::string n , size_t r=0 , size_t p=0):tp(tpp),ptrmem(p),name(n),refNum(r),ptrNum(p){};
     };
     
     struct arg_list : public pri::deque<VarDecl>{bool pack;};
-
+    using init_args =  pri::deque<expr>;
 
     template <typename SpecT>
     struct SpecIncl {
@@ -320,15 +341,15 @@ using  block =pri::deque<funcvar>;
             return tr->t;
         };
         SpecT& operator[](param_list<temp::inst>& plist){return get(plist);};
-        SpecT& top(){return tree.get();};
-        delete specTree();
-        specTree() = default; 
-        specTree(param_list& plt) {plist=plt;specs.push_back(specN())};
+        SpecT& top(){return specs.front();};
+        SpecIncl() = default; 
+        SpecIncl(param_list& plt) {plist=plt;specs.push_back(specN())};
     };
 
     struct FuncDef :  public  Qualifiable<qExplicit,qFinal,qVirtual,qConstExpr,qOverride,qStatic> {
         attrib_list atlist;
         arg_list args;block body;
+        FuncDef(attrib_list atlist,std::vector<qual> quals,arg_list args,block body)
     };
 
     struct Operator : public  Qualifiable<qExtern,qExplicit,qFinal,qConstExpr,qOverride,qStatic>, public SpecIncl<FuncDef> {
@@ -341,7 +362,6 @@ using  block =pri::deque<funcvar>;
         struct requ {static constexpr size_t argc_inclass = 1;static constexpr size_t argc_outclass = 2;};
         template <> requ <op::ty::opnot> {static constexpr size_t argc_inclass = 0;static constexpr size_t argc_outclass = 1;}
     };
-    using init_args = pri::deque<expr>;
     struct init {
         init_args args;
         VarDecl* member;
@@ -395,6 +415,7 @@ using  block =pri::deque<funcvar>;
     struct DeclType : Qualifiable<qExtern>,public SpecIncl<DefType> {
         std::string name;
         bool isUnion=false;bool anon=false;
+        type getType(){return top();}
         DeclType(std::string n) : name(n){}
     };
     struct While{Expr condition;block body;}
@@ -449,11 +470,13 @@ using  block =pri::deque<funcvar>;
         tyty ret;
         arg_list args;
         attrib_list atlist;
+        
 
-        operator FuncDef(){
-            FuncDef d;d.prms=prms;d.ret = ret;d.args=args;
-            return d;
+        type getType(){
+            return ret.back().Template ?
+            pri::get<stmt::TypeDecl*>(ret.back().inst)->get(ret.back().plist) : pri::get<stmt::TypeDecl*>(ret.back().inst).top(); 
         };
+        operator FuncDef(){return top();};
         bool operator<=(pri::deque<expr> ar){
             pri::deque<expr>::iter ita=ar.begin();
             arg_list::iter itt=args.begin();
@@ -476,7 +499,7 @@ using  block =pri::deque<funcvar>;
             };
             return true;
         };
-        bool operator==(pri::deque<type<temp::meta>*> argts){// TODO
+        bool operator==(arg_list& argl){// TODO
             if(args.size()!=args.size()){return false;}
             auto it = args.begin();
             for(type<meta>*&  ite : argts){
@@ -485,6 +508,7 @@ using  block =pri::deque<funcvar>;
             };
             return true;
         };
+        FuncDecl(FuncDef&& fdef){specs.push_back(fdef);}
         VarDecl& searchArg(sdt::string n){
             for(varDecl& it : args){if(it.name==n){return it;}}
         };
@@ -535,6 +559,16 @@ attrib_list atlist;
     struct  Throw {
         expr val;
         Throw(expr&& _val)  {val=_val;}
+    };
+    struct Asm {
+        attrib_list atlist;
+        std::string strlit;
+        struct balancedToken {
+            std::string cc;
+            std::string ref;
+            balancedToken(std::string c, std::string r) : cc(c), ref(r){};
+        };
+        pri::list<balancedToken> blt_seq;
     };
     
     accSpec acc=accSpec::Public;

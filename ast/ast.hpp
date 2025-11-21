@@ -824,7 +824,10 @@ struct type {
             }
         };
     };
-   
+    
+    type(std::initializer_list<stmt::VarDecl>& inList){
+
+    };
     
     type(std::string str, prim _tp) : name(str) , pt(_tp)  {}
     type(std::string str, ty _tp) : name(str) , t(tp)  {}
@@ -1009,13 +1012,13 @@ struct mStmtVersion;
     };
 
     template <temp q>
-    bool isMember(result* r,resty* res){return *r==result::rMethod ||*r==result::rVar;};
+    bool isMember(result* r,resty<q>* res){return *r==result::rMethod ||*r==result::rVar;};
     template <temp q>
-    bool isMemberPtr(result* r,resty* res){return isPtr(r,res) && isMember(r,res);};
+    bool isMemberPtr(result* r,resty<q>* res){return isPtr(r,res) && isMember(r,res);};
     template <temp q>
-    bool isPtrCompound(result* r,resty* res){return isPtr<q>(r,res) && isCompound<q>(r,res)};
+    bool isPtrCompound(result* r,resty<q>* res){return isPtr<q>(r,res) && isCompound<q>(r,res)};
     template <temp q>
-    bool hasSwizzle(result* r,resty* res){
+    bool hasSwizzle(result* r,resty<q>* res){
         switch(*r){
             case result::rValue : {return pri::get<value<q>>(*res).tp->hasSwizzle();}
             case result::rVar : {return pri::get<stmt::StmtVarDecl*>(*res)->tp->hasSwizzle()}
@@ -1023,8 +1026,8 @@ struct mStmtVersion;
         }
     };
     template <temp q>
-    bool hasMember(result* r,resty* res){return isCompound<q>(r,res) || hasSwizzle<q>(r,res);};
-template <temp q>
+    bool hasMember(result* r,resty<q>* res){return isCompound<q>(r,res) || hasSwizzle<q>(r,res);};
+
 struct ast{
     uint version;
     pri::deque<stmt::StmtLayout> layouts;
@@ -1046,8 +1049,6 @@ struct ast{
     type<q>* curtp;
 
     stmt::FuncDef* entry_pt;
-
-    accSpec curAcc;
 
     stmt::block& curBlock(){return *(curBl.back());};
     param_list<q>& curParams(){return *(curtemp.back());};
@@ -1203,9 +1204,9 @@ template <bool Strct> stmt::Do* pushStmt<stmt::Do,bool Strct>(stmt::Do&& st){ret
                 case result::rParam : {return ;}                
             }
             last = it;
-          }
-       };
+        }
     };
+    
     bool include(ast&& s){
         if(!s.curBl.empty()){return false;}
         this->layouts.concat(s.layouts);
@@ -1222,8 +1223,30 @@ template <bool Strct> stmt::Do* pushStmt<stmt::Do,bool Strct>(stmt::Do&& st){ret
         }   
     }
     void pushUsingNS(bool& glbl,pri::deque<std::string>& nsName){  nss.back()->useNs(findNs(glbl,nsName));};
-    bool exists(accMember_list<q>& aclist){find(aclist);return aclist.back().r!=result::rErr;};
-    
+    bool exists(accMember_list<q>& aclist){
+        accMember_list::iter it = aclist.begin();
+        stmt::TypeDef* ptr;
+        if(strcts.empty()){
+            stmt::NS* pt=nss.back();
+            for(it ;it!=aclist.end();++it){
+                try{pt->find(it->name,&it->r,&it->inst);}
+                catch(const NameNotFound& e){return false;}
+                if(it.r== result::rNs) {pt=pri::get<stmt::NS*>(it.inst);continue;}
+                else if(it.r== result::rType) :{ptr = pri::get<stmt::DeclType*>(it.inst);break;}
+                else {}
+            }
+        };
+        else {ptr= strcts.back();}
+        for(it ;it!=aclist.end();++it){
+            try{ptr->find(it->name,&it->r,&it->inst);}
+            catch(const NameNotFound& e){return false;}
+        }
+        aclist.resolved=true;
+        return true;
+    };
+    void procFinal(){// TODO    
+        // Process expressions and func Calls, do template resolution
+    };
 
     void includeNS(pri::deque<std::string>& nsName){nss.back()->includeNs(nsName);};
     
@@ -1235,4 +1258,8 @@ template <bool Strct> stmt::Do* pushStmt<stmt::Do,bool Strct>(stmt::Do&& st){ret
     ast() {nss.push_back(&global);};
 };
 
+
+ast<temp::inst> getInst(ast<temp::meta>& a){
+
+};
 #endif
