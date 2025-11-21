@@ -1,8 +1,0 @@
-{
-    "files.associations": {
-        "cstddef": "cpp",
-        "map": "cpp",
-        "xtree": "cpp",
-        "ranges": "cpp"
-    }
-}

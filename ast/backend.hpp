@@ -2,7 +2,7 @@
 #define STMSL_BACKEND_HPP
 #include <petri/templates.hpp>
 #include <petri/macros.hpp>
-
+#include <cstring>
 namespace stmsl
 {
     enum language {

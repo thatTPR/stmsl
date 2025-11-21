@@ -71,6 +71,8 @@
         "compare": "cpp",
         "numbers": "cpp",
         "codecvt": "cpp",
-        "__locale": "cpp"
+        "__locale": "cpp",
+        "cstring": "cpp",
+        "defs": "cpp"
     }
 }

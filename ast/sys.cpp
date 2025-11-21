@@ -94,16 +94,9 @@ namespace stmsl
 
     struct TypeError : public Error ;
 
-    struct ValueError : public Error;
+    struct ValueError : public ErrorT<value>;
 
-    class SwizzleError : public std::exception {
-    std::string msg;
-public:
-    explicit SwizzleError(const std::string& message) : msg(message) {}
-
-    // override what() to return description
-    const char* what() const noexcept override {return msg.c_str();}
-};
+    using SwizzleError = ErrorT<accMember_list::iter> ;
     template <typename T>
     struct ValErr {
         T val;    std::string msg;
@@ -114,14 +107,49 @@ public:
     const T& what() const noexcept override {return val;}
     };
     using ParamMismatch = ValErr<param_list<temp::inst>>;
-    using MemberAccess = ValErr<resty>;
+    using MemberAccess = ValErr<accMember_list<temp::meta>>;
+    using FuncNotFound = ValErr<accMember_list<temp::meta>>;
+    using OperatorNotFound = ValErr<accMember_list<temp::meta>>;
+    struct ConversionError {
+        private :
+        expr& e;expr::ExprTy::iterator& its; type<temp::inst>& t;
+        public:
+        ConversionError(expr& _e,expr::ExprTy::iterator& _its, type<temp::inst>& _t ): e(_e),its(_its),t(_t){};
+    };  
+
     template <typename SpecT>
     using AlreadyDefdSpec = ValErr<SpecT>
 
     using fileNotFound = ValErr<std::string>;
 
-// TODO write exceptions and errors
-    
+
+    class ResolveError : public Error{
+        struct ErrorVar {
+            pri::variant<TypeError,SwizzleError,ValueError,ParamMismatch,FuncNotFound,OperatorNotFound,
+            ConversionError> v;
+            ty t
+            enum ty {eTypeError,eSwizzle,eValue,eMember,eParamMismatch,eFuncNotFound,eOperatorNotFound,eConversionError};
+            template <typename T>
+            struct getTy;
+            template <> struct getTy<TypeError> {static constexpr ty en=eTypeError;}            
+            template <> struct getTy<SwizzleError> {static constexpr ty en=eSwizzle;}
+            template <> struct getTy<ValueErro> {static constexpr ty en=eValue;}
+            template <> struct getTy<MemberAccess> {static constexpr ty en=eMember;}
+            template <> struct getTy<ParamMismatch> {static constexpr ty en=eParamMismatch;}
+            template <> struct getTy<OperatorNotFound> {static constexpr ty en=eOperatorNotFound;}
+            template <> struct getTy<FuncNotFound> {static constexpr ty en=eFuncNotFound;}
+            template <> struct getTy<ConversionError> {static constexpr ty en=eConversionError;}
+
+            template <typename T>
+            ErrorVar(T&& i)  {t=getTy<T>::en;pri::get<T>(v)=i;}
+        };
+        pri::stack<ErrorVar> var  ;
+        template <typename T>
+        void push(T&& i){var.push(ErrorVar(i));};
+        template <typename T>
+        ResolveError(T&& i){var.push(ErrorVar(i));}
+    };
+
 struct _dir_ {
     std::vector<std::filesystem::path> arr;
     void push(std::filesystem::path m){
