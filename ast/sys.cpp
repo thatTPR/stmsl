@@ -25,9 +25,20 @@ namespace stmsl
         lex::ty& which(){return l;}
 
     }
+    template <typename T=void >
     class Warning : public Message {
     };
-    class Error : public Message;
+    
+    template <typename T=void>
+    class Error : public Message{
+                T e;lex::ty le;
+        public:
+        T& what(){return e;};
+        lex::ty& which(){return le;};
+        Error(T& _l) : e(_l);
+        Error(lex::ty& _l) : le(_l);
+
+    };
 
  template <typename Ty>
     class MemberNotFound : public Error {
@@ -41,21 +52,12 @@ namespace stmsl
     template <typename KW>
     struct KwError : public Warning {using KEYWORD=KW;} 
     template <typename T=ast<temp::meta>>
-    class UnexpectedToken  : public Message{};
+    class UnexpectedToken  : public Error{};
 
     template <>
 
     template <typename T>
-    class ErrorT {
-        T e;lex::ty le;
-        public:
-        T& what(){return e;};
-        lex::ty& which(){return le;};
-        ErrorT(T& _l) : e(_l);
-        ErrorT(lex::ty& _l) : le(_l);
-
-    };
-
+    using  ErrorT = Error<T>;
     template <typename T>
     class AlreadyDeclared : public Error {
         T* ptr;accMember_list* name;bool btemp;param_list<q>* plist;
@@ -73,7 +75,6 @@ namespace stmsl
     template <lex::ty t>
     struct ErrorNoToken : public ErrorToken<t>;
 
-    using accMemberStop = ErrorT<accMember_list>;
 
 
     struct DeclarationOutsideOfScope : Warning ;
@@ -110,13 +111,16 @@ public:
     using MemberAccess = ValErr<accMember_list<temp::meta>>;
     using FuncNotFound = ValErr<accMember_list<temp::meta>>;
     using OperatorNotFound = ValErr<accMember_list<temp::meta>>;
+    using LabelNotFound = Error;
+    using OutSideDefinition : Error;
     struct ConversionError {
         private :
         expr& e;expr::ExprTy::iterator& its; type<temp::inst>& t;
         public:
         ConversionError(expr& _e,expr::ExprTy::iterator& _its, type<temp::inst>& _t ): e(_e),its(_its),t(_t){};
     };  
-
+    template <typename T=void>
+    struct QualifierNotAllowed : ErrorT<T>;
     template <typename SpecT>
     using AlreadyDefdSpec = ValErr<SpecT>
 
@@ -133,7 +137,7 @@ public:
             struct getTy;
             template <> struct getTy<TypeError> {static constexpr ty en=eTypeError;}            
             template <> struct getTy<SwizzleError> {static constexpr ty en=eSwizzle;}
-            template <> struct getTy<ValueErro> {static constexpr ty en=eValue;}
+            template <> struct getTy<ValueError> {static constexpr ty en=eValue;}
             template <> struct getTy<MemberAccess> {static constexpr ty en=eMember;}
             template <> struct getTy<ParamMismatch> {static constexpr ty en=eParamMismatch;}
             template <> struct getTy<OperatorNotFound> {static constexpr ty en=eOperatorNotFound;}
@@ -177,6 +181,8 @@ struct _files_ : _dir_ {
         return false;
     };
 };
+
+bool Errors=false;
 
 struct err{
     parser& p;
@@ -351,6 +357,9 @@ case lex::ty::oor {return std::string("||");}
         getErr<Ts...>(prs,args...);
         if(wfatal_error and errt<ts,Ts...>::value){exit(1);}
     };
+
+    template <typename T,template <typename > typename Exc>
+    void e(stmsl::parser& prs,Exc<T> ex;)
     template <typename... Ts>
     void warn(stmsl::parser& prs,Ts... args){getWarn<Ts...>(prs,args...);}
 };

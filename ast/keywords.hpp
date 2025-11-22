@@ -216,9 +216,11 @@ using kw_Explicit =  kw_qual<"explicit",QExplicit> ;
 using kw_Final =  kw_qual<"final",QFinal>;
 using kw_Noexcept = kw_qual<"noexcept",QNoexcept>;
 using kw_Constexpr =  kw_qual<"constexpr",QConstExpr> ;
+using kw_Consteval = kw_qual<"consteval",qConstEval>;
 using kw_Static =  kw_qual<"static",QStatic> ;
 using kw_Extern  = kw_qual<_Qual"extern" , QExtern >;
 using kw_Const =  kw_qual<"const",QConst> ;
+using kw_Volatile =  kw_qual<"volatile",QVolatile> ;
 using kw_Inline = kw_qul<"inline",QInline>;
 using kw_Flat =  kw_qual<"flat",QFlat> ;
 using kw_in =  kw_qual<"in",QIn> ;
@@ -226,7 +228,7 @@ using kw_out =  kw_qual<"out",QOut> ;
 using kw_inout =  kw_qual<"inout",QInout> ;
 
 #define KW_LYTQ  kw_Flat , kw_in , kw_out , kw_inout 
-#define KW_QUAL  kw_Virtual,kw_Override,kw_Explicit,kw_Final,kw_Noexcept,kw_Constexpr,kw_Static,kw_Inline 
+#define KW_QUAL  kw_Virtual,kw_Override,kw_Explicit,kw_Final,kw_Noexcept,kw_Const,kw_Volatile,kw_Constexpr,kw_Consteval,kw_Static,kw_Inline 
 
 #define KW_LISTKW KW_LISTKW, KW_QUAL , KW_LYTQ,kw_Extern,
 
@@ -262,6 +264,7 @@ struct kw_Namespace : public  kw<"namespace",stmt::NS,kwty::stmt>{
     void proc(parser& p){
         p.Fromuntil<lex::ty::lbrace>();}
 };
+using kw_goto = kw<"goto",stmt::Goto,kwty::funcStmt>;
 using kw_If =  kw<"if",stmt::If,kwty::funcStmt> ;
 using kw_Else =  kw<"else",stmt::Else,kwty::funcStmt> ;
 using kw_Switch =  kw<"switch",stmt::Switch,kwty::funcStmt> ;

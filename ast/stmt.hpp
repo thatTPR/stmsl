@@ -7,74 +7,36 @@ enum AttribT {
     LayoutOnly,LayoutExcl,Every,
     ClassMember,Func,Method
 };
-enum qual {qExtern=0,qStatic=1,qConstExpr=2,qConst=3,qVirtual=4,qOverride=5,qExplicit=6,qFinal=7,qFriend=8,qNoexcept=9,qInline=10,qExplicit=11,qin=32,qinout=33,qout=34,qflat=35};
-template <AttribT atT>
-struct AttribS {static constexpr AttribT at = atT;}
-template <qual q>
-struct _Qual{static constexpr AttribType at;};
-
-template <>struct _Qual<qual::qStatic> : public AttribS<AttribT::ClassMember> {};
-template <>struct _Qual<qual::qConstExpr> : public AttribS<AttribT::Every> {};
-template <>struct _Qual<qual::qConst> : public AttribS<AttribT::LayoutExcl> {};
-template <>struct _Qual<qual::qin> : public AttribS<AttribT::Every> {};
-template <>struct _Qual<qual::qinout> : public AttribS<AttribT::Every> {};
-template <>struct _Qual<qual::qout> : public AttribS<AttribT::Every> {};
-template <>struct _Qual<qual::qflat> : public AttribS<AttribT::LayoutOnly> {};
-template <>struct _Qual<qual::qExplicit> : public AttribS<AttribT::ClassMember> {};
-template <>struct _Qual<qual::qVirtual> : public AttribS<AttribT::Method> {};
-template <>struct _Qual<qual::qOverride> : public AttribS<AttribT::Method> {};
-template <>struct _Qual<qual::qFinal> : public AttribS<AttribT::Method> {};
-template <>struct _Qual<qual::qFriend> : public AttribS<AttribT::ClassMember> {};
-template <>struct _Qual<qual::qInline> : public AttribS<AttribT::Func> {};
-template <>struct _Qual<qual::qNoexcept> : public AttribS<AttribT::Func> {};
-
-template <Str s,qual q>
-struct Qual {static constexpr qual quality = q; static constexpr AttribT at = _Qual::at; }
-
-using QStatic = Qual<qual::qStatic>;
-using QConstExpr = Qual<qual::qConstExpr>;
-using QConst = Qual<qual::qConst>;
-using QIn  =Qual<qual::qin>;
-using QInout =Qual<qual::qinout>;
-using QOut =Qual<qual::qout>;
-using QFlat =Qual<qual::qflat>;
-using QVirtual =Qual<qual::qVirtual>;
-using QOverride =Qual<qual::qOverride>;
-using QExplicit =Qual<qual::qExplict>;
-using QFinal =Qual<qual::qFinal>;
-using QFriend = Qual<qual::qFriend>;
-using QNoexcept = Qual<qual::qNoexcept>;
-using QExtern = Qual<qual::qExtern>;
-using QInline = QUal<qual::qInline>;
-
+enum qual {qExtern=0,qStatic=1,qConstExpr=2,qConstEval,qConst=3,qVolatile,qVirtual=4,qOverride=5,qExplicit=6,qFinal=7,qNoexcept=9,qInline=10,qExplicit=11,qin=32,qinout=33,qout=34,qflat=35};
+#define QUALS_EN qExtern,qStatic,qConstExpr,qConstEval,qConst,qVolatile,qin,qinout,qout,qflat,qVirtual,qOverride,qExplicit,qFinal,qNoexcept
 template <qual... Qs >
     struct Qualifiable {
-        struct one_of<qual q ,qual qo, qual... Qs>{
-            static constexpr bool value = q==q?true: one_of<q,Qs...>::value; 
-        }
-        struct one_of<qual q ,qual qo>{
-            static constexpr bool value = q==q; 
-        }
-        std::enable_if<one_of<qExtern,Qs...>::value,bool>::type Extern;
-        std::enable_if<one_of<qStatic,Qs...>::value,bool>::type Static;
-        std::enable_if<one_of<qConstExpr,Qs...>::value,bool>::type ConstExpr;
-        std::enable_if<one_of<qConst,Qs...>::value,bool>::type Const;
-        std::enable_if<one_of<qin,Qs...>::value,bool>::type in;
-        std::enable_if<one_of<qinout,Qs...>::value,bool>::type inout;
-        std::enable_if<one_of<qout,Qs...>::value,bool>::type out;
-        std::enable_if<one_of<qflat,Qs...>::value,bool>::type flat;
-        std::enable_if<one_of<qVirtual,Qs...>::value,bool>::type Virtual;
-        std::enable_if<one_of<qOverride,Qs...>::value,bool>::type Override;
-        std::enable_if<one_of<qExplicit,Qs...>::value,bool>::type Explicit;
-        std::enable_if<one_of<qFinal,Qs...>::value,bool>::type Final;
-        std::enable_if<one_of<qFriend,Qs...>::value,bool>::type Friend;
-        std::enable_if<one_of<qNoexcept,Qs...>::value,bool>::type Noexcept;  
+        struct one_of<qual q ,qual qo, qual... Qs>{static constexpr bool value = q==q?true: one_of<q,Qs...>::value; }
+        struct one_of<qual q ,qual qo>{static constexpr bool value = q==q; }
+
+        std::enable_if<one_of<qExtern,Qs...>::value,bool>::type Extern=false;
+        std::enable_if<one_of<qStatic,Qs...>::value,bool>::type Static=false;
+        std::enable_if<one_of<qConstExpr,Qs...>::value,bool>::type ConstExpr=false;
+        std::enable_if<one_of<qConstEval,Qs...>::value,bool>::type ConstEval=false;
+        std::enable_if<one_of<qConst,Qs...>::value,bool>::type Const=false;
+        std::enable_if<one_of<qVolatile,Qs...>::value,bool>::type Volatile=false;
+        std::enable_if<one_of<qin,Qs...>::value,bool>::type in=false;
+        std::enable_if<one_of<qinout,Qs...>::value,bool>::type inout=false;
+        std::enable_if<one_of<qout,Qs...>::value,bool>::type out=false;
+        std::enable_if<one_of<qflat,Qs...>::value,bool>::type flat=false;
+        std::enable_if<one_of<qVirtual,Qs...>::value,bool>::type Virtual=false;
+        std::enable_if<one_of<qOverride,Qs...>::value,bool>::type Override=false;
+        std::enable_if<one_of<qExplicit,Qs...>::value,bool>::type Explicit=false;
+        std::enable_if<one_of<qFinal,Qs...>::value,bool>::type Final=false;
+        std::enable_if<one_of<qNoexcept,Qs...>::value,bool>::type Noexcept =false; 
         template <qual q>
         struct ptr {bool Qualifiable<Qs...>::*  p;}
 template <> struct ptr<qExtern>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Extern;};
 template <> struct ptr<qStatic>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Static;};
 template <> struct ptr<qConstExpr>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::ConstExpr;};
+template <> struct ptr<qConstEval>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::ConstEval;};
 template <> struct ptr<qConst>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Const;};
+template <> struct ptr<qVolatile>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Volatile;};
 template <> struct ptr<qin>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::in;};
 template <> struct ptr<qinout>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::inout;};
 template <> struct ptr<qout>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::out;};
@@ -83,15 +45,20 @@ template <> struct ptr<qVirtual>{static constexpr bool Qualifiable<Qs...>::* p=&
 template <> struct ptr<qOverride>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Override;};
 template <> struct ptr<qExplicit>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Explicit;};
 template <> struct ptr<qFinal>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Final;};
-template <> struct ptr<qFriend>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Friend;};
 template <> struct ptr<qNoexcept>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Noexcept;};
 
         template <qual Q>
         static constexpr bool hasQual(){return one_of<Q,Qs...>::value;}
         template <qual Q>
         bool& getQual(){return this->*ptr<Q>::ptr;}
+
+        template <qual _qs,qual _qss>
+        void _pushQual(qual& q){if(q==_qs){this->*ptr::<_qs>::p =true;return;}
+            if constexpr(sizeof...(_qss) >0){return _pushQual<_qss...>(q);}   
+            throw QualifierNotAllowed();
+        };
         void push(std::vector<qual>& quals){
-            for(qual it : quals)
+            for(qual& it : quals){_pushQual<Qs...>(it);}
         }
     };
 
@@ -103,6 +70,7 @@ struct stmt {
 eblock=0,eNS=1,
 eOperator=2,
 eDeclType=3,eDefType=4,
+eGoto=5,eLabel=6,
 eExpr=7,
 eDo=8,
 eWhile=10,eFor=11,eForRange=12,
@@ -122,6 +90,8 @@ struct Operator;
 struct DeclType;
 struct DefType ;
 
+struct Label ;
+struct Goto;
 using Expr = expr;
 struct While;
 struct For;
@@ -132,7 +102,7 @@ struct Case;
 using Default = block;
 struct If;
 struct Else;
-struct ElseIf;
+
 using Return = Expr;
 struct FuncDecl;
 struct FuncDef ;
@@ -206,7 +176,7 @@ template<> stmtty getTyf<Layout>(){return stmtty::Layout;}
 
 
 
-using funcvar = pri::variant<Expr,While,For,Do,ForRange,Switch,If,Else,ElseIf,Return,Try,Catch,Throw,block,Asm>;
+using funcvar = pri::variant<Goto,Label,Expr,While,For,Do,ForRange,Switch,If,Else,ElseIf,Return,Try,Catch,Throw,block,Asm>;
 struct funcStmt{funcvar inst;stmtty t;
     template <typename T>
     funcStmt(stmtty i,T& _d) : t(i){pri::get<T>(inst)=d;};
@@ -218,7 +188,7 @@ struct funcStmt{funcvar inst;stmtty t;
         if (s==st){_resolve<getTy<st>::ty>(inst).resolve(a);}
         else if constexpr (sizeof...(sts)>0){Which<sts...>(s,a);}
     };
-    void resolve(ast& a){Which<eExpr,eWhile,eFor,eDo,eForRange,eSwitch,eIf,eElse,eElseIf,eReturn,eTry,eCatch,eThrow,eblock,eAsm>(t,a);}
+    void resolve(ast& a){Which<eGoto,eLabel,eExpr,eWhile,eFor,eDo,eForRange,eSwitch,eIf,eElse,eElseIf,eReturn,eTry,eCatch,eThrow,eblock,eAsm>(t,a);}
 };
     
     struct  block :pri::deque<funcStmt>{
@@ -227,6 +197,25 @@ struct funcStmt{funcvar inst;stmtty t;
     void resolve(ast& a){
         for( funcStmt it : *this){is.resolve(a);         };
     };
+};
+
+
+struct Label{
+    std::string name;
+    Label(std::string n)  : name(n);
+} ;
+struct Goto{funcStmt* lbl;std::string nameLbl;
+    Goto(std::string n ) : nameLbl(n){};
+    void resolve(ast& a){
+        for( Block  itb : pri::reverse(a.curBl)){
+            for(funcStmt& it : itb ) {
+                if(it.t=stmtty::eLabel){
+                    if(pri::get<Label>(inst).name==nameLbl){lbl=&pri:get<Label>(inst);return;}
+                }
+            }
+        };
+        throw LabelNotFound();
+    }
 };
     
     struct NS {
@@ -331,17 +320,13 @@ struct funcStmt{funcvar inst;stmtty t;
                 if(f==s and  (args <= f)){return f;}
             }
         };
-
-
-        
         operator std::string(){return this->name;}
-        
     };
-    using tyty = accMember_list ;
+    using tyty = accMember_seq ;
     
-    struct VarDecl : public  Qualifiable<qExtern,qConst,qin,qout,qflat,qConstExpr,qStatic>{
+    struct VarDecl : public Qualifiable<qExtern,qConst,qin,qout,qflat,qConstExpr,qConstEval,qStatic>{
         
-        tyty tp;std::string name;size_t refNum=0;size_t ptrNum=0;expr arrSize=0;bool arr;
+        tyty tp;std::string name;expr arrSize=0;
         bool memberPtr;tyty ptrmem;// In case of ptrToMember or funcPtr
         bool Default;expr DefaultValue;
         
@@ -369,6 +354,7 @@ struct funcStmt{funcvar inst;stmtty t;
         constexpr VarDecl( type<temp::inst>& tp,std::string str) : name(n) {
             push(quals);pri::get<type<temp::meta>>()
         };
+        
 
         VarDecl(tyty& tpp, std::string n , size_t r=0 , size_t p=0):tp(tpp),name(n),refNum(r),ptrNum(p){};
         VarDecl(tyty& tpp,tyty p ,std::string n , size_t r=0 , size_t p=0):tp(tpp),ptrmem(p),name(n),refNum(r),ptrNum(p){};
@@ -408,20 +394,28 @@ struct funcStmt{funcvar inst;stmtty t;
             // (-)n by how many params are more specialized, 
             auto isit = is.spec.begin();auto thanit=than.spec.begin();
             int cm;
-            for(;isit!= is.end() and (thanit!=than.end());){
+            for(;isit!= is.end() ;){
                 int isc=0;
-                if(isit->vl.val.tt==value::truTy::eaccList ){
-                    if(pri::get<accMember_list>(isit->vl.val)
+                switch(isit->vl.val.tt ){
+                    case ==value::truTy::eaccList : {
+                        if(pri::get<accMember_seq>(isit->vl.val)).back().t!=result::rParam){isc++;};
+                    }
+                    case value::truTy::eptrMember : {ics++;}
+                    case value::truTy::efuncCall : {ics++;}
+                    case value::truTy::einit_list : {ics++;}
+                    case value::truTy::eliteral : {ics++;}
                 }
                 int thc=0;
-                ++isit;++thanit;
+                                if(isit->vl.val.tt==value::truTy::eaccList ){
+                    if(pri::get<accMember_seq>(isit->vl.val)).back().t!=result::rParam){isc++;};
+                }
+                if (thanit==than.tail()){if(thanit->pack){continue}else break;}
+                else {++thanit;}
+                ++isit;
             };
 
         };
-        int moreSpecialized(specN& is,specN& than){
-            if()
-
-        };
+       
         
         SpecT get( param_list<temp::inst>& plist){
             for(const specN& it : specs){
@@ -437,7 +431,7 @@ struct funcStmt{funcvar inst;stmtty t;
 
     struct FuncDef :  public  Qualifiable<qExplicit,qFinal,qVirtual,qConstExpr,qOverride,qStatic> {
         attrib_list atlist;
-        accMember_list rett;
+        accMember_seq rett;
         arg_list args;block body;
 
         FuncDef(attrib_list _atlist,std::vector<qual> _quals,arg_list args,block _body) : atlist(_atilst),body(_body{ push(quals);}; 
@@ -463,7 +457,7 @@ struct funcStmt{funcvar inst;stmtty t;
         init() = default;
         init(VarDecl* vdecl,bool&& br,arg_list&& arg);
     };  
-    struct Constructor  : public Qualifiable<qExplicit,qConstExpr,qOverride,qStatic,qNoexcept>, SpecIncl<ConstructorDef> {
+    struct Constructor  : public Qualifiable<qExplicit,qConstExpr,qConstEval,qOverride,qStatic,qNoexcept>, SpecIncl<ConstructorDef> {
         attrib_list atlist;
         // param_list<temp::meta> plist;
         arg_list args;pri::deque<init> init_list; block body;  bool Default=  false;
@@ -515,37 +509,37 @@ struct funcStmt{funcvar inst;stmtty t;
         Case(expr&& e){ex=e;}
     };
     
-    struct Switch : Qualifiable<qConstExpr> {
+    struct Switch : Qualifiable<qConstExpr,qConstEval> {
         bool assign;value<temp::inst> vl;
         block body;
         pri::deque<Case> css;block dflt; 
         expr ex; bool Init;expr inexpr;
         attrib_list atlist;
     } ;
-    struct If : Qualifiable<qConstExpr> { 
+    struct If : Qualifiable<qConstExpr,qConstEval> { 
         Expr condition;
         block body;
-                attrib_list atlist;bool Else=false;bool If=false;
-        pri::deque<Else*> Elses;
+        attrib_list atlist;bool Else=false;bool If=false;
+        Else* el;
         void resolve(ast& a){condition.resolve(a);body.resolve();for( Else* it : Elses){it->resolve(a);}};
         If(expr e) : condition(e) {}
     };
     struct Else {
-        pri::variant<If*,Else*> IfS;bool elIf;
-        bool cond;expr condition;
+        pri::variant<If*,Else*> IfS;
+        bool elIf;
+        Else* el;bool cond;expr condition;
         block body;
         attrib_list atlist;
         void resolve(ast& a){
             if(cond){condition.resolve(a);}body.resolve(a);
         }
-        Else(If& If) : elIf(false) {pri::get<If*>(Ifs)=&If;}
-        Else(ElseIf& If) : elIf(true) {pri::get<ElseIf*>(Ifs)=&If;}
+        Else(If* If) : elIf(false) {pri::get<If*>(Ifs)=If;}
+        Else(Else* If) : elIf(false) {pri::get<If*>(Ifs)=If;}
     };
     
-    struct FuncDecl : public  public  Qualifiable<qExplicit,qVirtual,qFinal,qConstExpr,qOverride,qStatic>,public SpecIncl<FuncDef> {
+    struct FuncDecl : public  public  Qualifiable<qExplicit,qVirtual,qFinal,qConstExpr,qConstExpr,qOverride,qStatic>,public SpecIncl<FuncDef> {
         
         std::string name;
-        param_list prms;
         using tyret = std::conditional<temp::meta==q,expr<temp::meta>,type*>::type;
         // using tycond = expr ; tycond pre; tycond post ; // C++ 26
         
@@ -585,16 +579,15 @@ struct funcStmt{funcvar inst;stmtty t;
             return true;
         };
         bool operator==(arg_list& argl){// TODO
-            if(args.size()!=args.size()){return false;}
             auto it = args.begin();
-            for(type<meta>*&  ite : argts){
+            for(type<meta>&  ite : argl){
                 if(*ite!=it->tp){return false;}
                 ++it;
             };
             return true;
         };
 
-
+        FuncDecl(std::string n,accMember_seq& accl,arg_list& prml): name(n){ret=accl;args=prml;};
         FuncDecl(FuncDef&& fdef){specs.push_back(fdef);}
         VarDecl& searchArg(sdt::string n){
             for(varDecl& it : args){if(it.name==n){return it;}}
