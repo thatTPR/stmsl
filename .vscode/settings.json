@@ -73,6 +73,7 @@
         "codecvt": "cpp",
         "__locale": "cpp",
         "cstring": "cpp",
-        "defs": "cpp"
+        "defs": "cpp",
+        "*.def": "cpp"
     }
 }

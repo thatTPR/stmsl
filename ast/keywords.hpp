@@ -194,16 +194,26 @@ struct kw_Union : public kw<"union",type<temp::meta>,kwty::Struct>{
 using kw_Enum = kw<"enum",Enum , kwty::stmt>;
 #define KW_TYPEKW kw_Enum, kw_Struct,kw_Class ,
 #ifdef CXX_C
-using kw_New = kw<"new",value<temp::meta>,kwty::prim>
-using kw_Delete = kw<"delete",value<temp::meta>,kwty::prim>
-using kw_Nullptr = kw<"nullptr",value<temp::meta>,kwty::prim>;
+template <Str s, op::ty op>
+struct kw_opt  : public kw<s,expr,kwty::prim>{
+
+};
+using kw_New = kw<"new",op::ty::opNew>
+using kw_Delete = kw<"delete",op::ty::opDelete>
+using kw_sizeof = kw<"sizeof",op::ty::opSizeof>
+
+using kw_static_cast = kw_cast<"static_cast",op::ty::StaticCast>;
+using kw_reinterpret_cast = kw_cast<"reinterpret_cast",op::ty::ReinterpretCast>;
+using kw_dynamic_cast = kw_cast<"dynamic_cast",op::ty::DynamicCast>;
+#define KW_CASTS
+#defien KW_OPS KW_CASTS , KW_New,kwDelete,kw_sizeof
+using kw_Nullptr = kw_cast<"nullptr",value<temp::meta>,kwty::prim>;
 using kw_Null = kw<"NULL",value<temp::meta>,kwty::prim>;
 using kw_long = kw<"long",value<temp::meta>,kwty::prim>;
 using kw_short = kw<"short",value<temp::meta>,kwty::prim>;
 using kw_unsigned = kw<"unsigned",integralT,kwty::prim>;
 using kw_signed = kw<"signed",integralT,kwty::prim>;
-using kw_sizeof = kw<"sizeof",void,kwty::prim>
-#define KW_PRIM kw_New,kw_Delete,kw_Nullptr,kw_Null,kw_New,kw_long,kw_short,kw_unsigned,kw_signed,kw_sizeof
+#define KW_PRIM kw_New,kw_Delete,kw_Nullptr,kw_Null,kw_New,kw_long,kw_short,kw_unsigned,kw_signed,KW_OPS
 #endif
 using kw_Auto = kw<"auto",value<temp::meta>::kwty::prim>;
 
@@ -240,12 +250,17 @@ using kw_inout =  kw_qual<"inout",QInout> ;
 struct kw_Template :public  kw<"template",void,kwty::Tempstmt>{
     void proc(parser& p){p.getTemplate();};
 } ;
+
+using kw_concept = kw<"concept",void,kwty::stmt>;
+using kw_require = kw<"require",void,kwty::stmt>;
+using kw_pre = kw<"pre",void ,kwty::stmt>;
+using kw_post=kw<"pre",void,kwty::stmt>;
 using kw_Typename =  kw<"typename",void,kwty::stmt> ;
 using kw_Typedef = kw<"typedef",void ,kwty::stmt>
 using kw_Friend = kw<"friend",QFriend,kwty::qualifier>;
 using kw_Operator = kw<"operator",stmt::OperatorDecl,kwty::stmt>;
 using kw_Decltype = kw<"decltype",stmt::FuncDecl,kwrt::stmt>;
-#define KW_LISTKW KW_LISTKW,kw_Template,kw_Typename ,kw_Friend,kw_Operator,kw_Decltype
+#define KW_LISTKW KW_LISTKW,kw_Template,kw_concept,kw_require,kw_pre,kw_post,kw_Typename ,kw_Friend,kw_Operator,kw_Decltype
 template <pri::Str s,accSpec asT>
 struct kw_as : public kw<s,void,kwty::accessSpec> {
     void proc(parser& p){

@@ -49,14 +49,21 @@ struct opt {
 #define OPTS_MACROS OPTS_MACROS , name
 
 
+
+struct opt_E : opt<"-E","-E                       Preprocess only; do not compile, assemble or link.">{
+void proc(){stmsl::sys.preProcOnly();}
+};
+struct opt_s : opt<"-S","-S                       Compile only; do not assemble or link.">{
+void proc(){stmsl::sys.compileOnly();}
+};
+struct opt_c : opt<"-c","-c                       Compile and assemble, but do not link.">{
+void proc(){stmsl::sys.compileAndAssembleNoLink();}
+};
 struct opt_CPH : opt<"-CPH",  " Compiled header for .hstmsl files.">{
 void proc(){stmsl::sys.CPH=true;}
 };
 struct opt_CPHU : opt<"-CPHU", "Use Compiled headers.">{
 void proc(){stmsl::sys.CPHU=true;};
-};
-struct opt_c  : opt<"-c","Only run preprocess, compile, and assemble steps.">{
-void proc(){stmsl::sys.preprocAndCompileOnly=true;};
 };
 struct opt_D  : opt<"-D", "Add an implicit macro definition.",std::string str,std::string>{
 void proc(){
@@ -70,7 +77,7 @@ void proc(){
 };
 };
 struct opt_E : opt<"-E","Outputs only the results of the preprocessing step. Output defaults to standard output.">{
-void proc(){stmsl::sys.preprocOnly=true;};
+void proc(){stmsl::sys.preprocOnly();};
 };
 struct opt_fauto_bind_uniforms : opt<"-fauto-bind-uniforms","Automatically assign bindings to uniform variables that don't have an explicit 'binding' layout in the shader source.">{
 void proc(){stmsl::sys.fauto_bind_uniforms=true;};
@@ -220,14 +227,20 @@ void proc(){stmsl::sys.lims.print();};
 };
 struct opt_target_env : opt<"--target-env"," Set the target client environment, and the semantics\
                     of warnings and errors.  An optional suffix can specify\
-                    the client version.  Values are:\
+                    the client version.  For stmsl Values are:\
                         vulkan1.0       # The default\
                         vulkan1.1\
                         vulkan1.2\
                         vulkan1.3\
                         vulkan          # Same as vulkan1.0\
                         opengl4.5\
-                        opengl          # Same as opengl4.5">{
+                        opengl          # Same as opengl4.5\
+                        For cpp values are:\
+                        windows\
+                        linux\
+                        
+                        
+                        ">{
 void proc(){stmsl::sys._spv(this->val);};
 };
 
@@ -252,17 +265,24 @@ struct opt_w : opt<"-w"," Suppresses all warning messages.">{
 void proc(){stmsl::sys.supressWarnings=true;};
 };
 
+struct cpp_version 
 struct opt_Werror : opt<"-Werror","Treat all warnings as errors.">{
 void proc(){stmsl::sys.Werror=true;}
 }
 
+
 struct opt_W_fatal_errors : opt<"-Wfatal-errors","Stop Process on error">{void proc(){stmsl::sys.Wfatal_error=true;}};
-struct :opt<"--template-eval-depth","template eval depth",size_t>{void proc(int argc,char* argv[],int& i){
+struct opt_template_eval_depth:opt<"--template-eval-depth","template eval depth",size_t>{void proc(int argc,char* argv[],int& i){
     templateEvalDepth=getnum(val);
 };};
+struct opt_language : opt<"--language=","--language=<lang> stmsl, cpp SelectLanguage",std::string>{
+    void proc(int argc,char* argv[],int& i){
+        if(argv[i] == std::string("cpp").c_str()){stmsl::lang=language::cpp;}
+        if(argv[i]==std::string("stmsl").c_str(){stmsl::lang=language})
+    };
+};
 
-
-#define OPTS_MACROS OPTS_MACROS,opt_Werror,opt_W_fatal_errors,opt_CPH,opt_CPHU,opt_c ,opt_D ,opt_E,opt_fauto_bind_uniforms,opt_fauto_map_locations,opt_fauto_combined_image_sampler,opt_fentry_point,opt_fhlsl_16bit_types,opt_fhlsl_functionality1,opt_fhlsl_iomap,opt_fhlsl_offsets,opt_finvert_y,opt_flimit,opt_fnan_clamp,opt_fpreserve_bindings,opt_fresource_set_binding,opt_fcbuffer_binding_base,opt_fimage_binding_base,opt_fsampler_binding_base,opt_fssbo_binding_base,opt_ftexture_binding_base,opt_fuav_binding_base,opt_fubo_binding_base,opt_fshader_stage,opt_g,opt_h,opt_help,opt_I,opt_mfmt,opt_O,opt_Os,opt_O0,opt_o,opt_std,opt_S,opt_show_limits,opt_target_env,opt_target_spv,opt_version,opt_w
+#define OPTS_MACROS OPTS_MACROS,opt_Werror,opt_W_fatal_errors,opt_CPH,opt_CPHU,opt_c ,opt_D ,opt_E,opt_fauto_bind_uniforms,opt_fauto_map_locations,opt_fauto_combined_image_sampler,opt_fentry_point,opt_fhlsl_16bit_types,opt_fhlsl_functionality1,opt_fhlsl_iomap,opt_fhlsl_offsets,opt_finvert_y,opt_flimit,opt_fnan_clamp,opt_fpreserve_bindings,opt_fresource_set_binding,opt_fcbuffer_binding_base,opt_fimage_binding_base,opt_fsampler_binding_base,opt_fssbo_binding_base,opt_ftexture_binding_base,opt_fuav_binding_base,opt_fubo_binding_base,opt_fshader_stage,opt_g,opt_h,opt_help,opt_I,opt_mfmt,opt_O,opt_Os,opt_O0,opt_o,opt_std,opt_S,opt_show_limits,opt_target_env,opt_target_spv,opt_version,opt_w,opt_template_eval_depth,opt_language
 
 
 template <typename Opt,typename... Opt>
@@ -319,21 +339,23 @@ void main(int argc, char* argv[] ){std::string s;
             rootFile = pCWD; 
         }
      }
-    switch (stmsl::l){
+    switch (stmsl::sys.l){
         case langauge::cpp {
-            switch (stmsl::
+            switch (stmsl::cppVersion){
+                case version<language::spv>::ver::_17 : {emit<language::cpp,version<language::cpp>::ver::_17 ;}
+                case version<language::spv>::ver::_20 : {emit<language::cpp,version<language::cpp>::ver::_20 ;}
+                case version<language::spv>::ver::_26 : {emit<language::cpp,version<language::cpp>::ver::_26 ;}
+            };
         }
         case language::spv {
             switch(stmsl::_spv.v.){
-
-                case version<language::spv>::ty::spv10: {emit<language::spv,version<language::spv>::ty::spv10>();}
-                case version<language::spv>::ty::spv11: {emit<language::spv,version<language::spv>::ty::spv11>();}
-                case version<language::spv>::ty::spv12: {emit<language::spv,version<language::spv>::ty::spv12>();}
-                case version<language::spv>::ty::spv13: {emit<language::spv,version<language::spv>::ty::spv13>();}
-                case version<language::spv>::ty::spv14: {emit<language::spv,version<language::spv>::ty::spv14>();}
-                case version<language::spv>::ty::spv15: {emit<language::spv,version<language::spv>::ty::spv15>();}
-                case version<language::spv>::ty::spv16: {emit<language::spv,version<language::spv>::ty::spv16>();}
-                
+                case version<language::stmsl>::ver::spv10: {emit<language::spv,version<language::spv>::ver::spv10>();}
+                case version<language::stmsl>::ver::spv11: {emit<language::spv,version<language::spv>::ver::spv11>();}
+                case version<language::stmsl>::ver::spv12: {emit<language::spv,version<language::spv>::ver::spv12>();}
+                case version<language::stmsl>::ver::spv13: {emit<language::spv,version<language::spv>::ver::spv13>();}
+                case version<language::stmsl>::ver::spv14: {emit<language::spv,version<language::spv>::ver::spv14>();}
+                case version<language::stmsl>::ver::spv15: {emit<language::spv,version<language::spv>::ver::spv15>();}
+                case version<language::stmsl>::ver::spv16: {emit<language::spv,version<language::spv>::ver::spv16>();}
             }
         }
     }

@@ -16,11 +16,7 @@ struct pragma {
 };
 
 // Attributes 
-struct attribute {
-    std::string name;
-    virtual void proc()
-    attribute()
-};
+#include "attribs.hpp"
 
 // functions
 };

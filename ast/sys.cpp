@@ -25,20 +25,19 @@ namespace stmsl
         lex::ty& which(){return l;}
 
     }
-    template <typename T=void >
-    class Warning : public Message {
-    };
-    
     template <typename T=void>
-    class Error : public Message{
-                T e;lex::ty le;
-        public:
+    struct Except {
+        T e;lex::ty le;
         T& what(){return e;};
         lex::ty& which(){return le;};
-        Error(T& _l) : e(_l);
-        Error(lex::ty& _l) : le(_l);
-
+        Except(T& _l) : e(_l);
+        Except(lex::ty& _l) : le(_l);
     };
+    template <typename T=void >
+    struct Warning : public Except<T>{} ;
+    
+    template <typename T=void>
+    struct Error : public Except<T>{};
 
  template <typename Ty>
     class MemberNotFound : public Error {
@@ -58,6 +57,7 @@ namespace stmsl
 
     template <typename T>
     using  ErrorT = Error<T>;
+
     template <typename T>
     class AlreadyDeclared : public Error {
         T* ptr;accMember_list* name;bool btemp;param_list<q>* plist;
@@ -91,28 +91,19 @@ namespace stmsl
         const char* what() const noexcept override{std::string str("");return msg.c_str();}
     };
         class NameSpaceNotFound : public NameNotFound ;
-
+    
+    struct NameSpaceNotAllowed : Error {};
 
     struct TypeError : public Error ;
-
-    struct ValueError : public ErrorT<value>;
-
-    using SwizzleError = ErrorT<accMember_list::iter> ;
-    template <typename T>
-    struct ValErr {
-        T val;    std::string msg;
-public:
-    explicit ValErr(T& it) : val(it) {}
-
-    // override what() to return description
-    const T& what() const noexcept override {return val;}
-    };
-    using ParamMismatch = ValErr<param_list<temp::inst>>;
-    using MemberAccess = ValErr<accMember_list<temp::meta>>;
-    using FuncNotFound = ValErr<accMember_list<temp::meta>>;
-    using OperatorNotFound = ValErr<accMember_list<temp::meta>>;
-    using LabelNotFound = Error;
-    using OutSideDefinition : Error;
+    struct ValueError : public Error;
+struct TemplateConversionFunction : Error;
+    using SwizzleError = Error<accMember_list::iter> ;
+    struct ParamMismatch : Error<param_list<temp::inst>>;
+    struct MemberAccess : Error<accMember_list<temp::meta>>;
+    struct FuncNotFound : Error<accMember_list<temp::meta>>;
+    struct OperatorNotFound : Error<accMember_list<temp::meta>>;
+    struct LabelNotFound : Error;
+    struct OutSideDefinition : Error;
     struct ConversionError {
         private :
         expr& e;expr::ExprTy::iterator& its; type<temp::inst>& t;
@@ -122,10 +113,22 @@ public:
     template <typename T=void>
     struct QualifierNotAllowed : ErrorT<T>;
     template <typename SpecT>
-    using AlreadyDefdSpec = ValErr<SpecT>
+    struct AlreadyDefdSpec : ValErr<SpecT>
+    template <typename SpecT>
+    struct AlreadyDeclared : ValErr<SpecT>
+    template <typename T>
+    struct StmtNotAllowed : Error<T>;
 
+    template <typename T>
+    struct ShadowErr :  Error<T>;
+
+    template <typename T>
+    struct ShadowWarn : Warn<T>;
+
+using EnumValueMustBeCexpr = Error<EnumT> ;
     using fileNotFound = ValErr<std::string>;
-
+struct AttribNotFound : Warning<attrib>{}; 
+struct AttributeNotForStmt : Warning<stmt::stmtty>;
 
     class ResolveError : public Error{
         struct ErrorVar {
@@ -186,31 +189,8 @@ bool Errors=false;
 
 struct err{
     parser& p;
-    enum t{
-        fileNotFound,
-        include_closing_angle_bracket,include_closing_dq,
-        unexpected_kw,
-        func_signature,
-        template_param_mismatch,template_param_list_incomplete,
-        swizzle_notexist,swizzle_fortype,
-        qualifierNotAllowedForStmt,
-        expectedOpeningBrace,
-        macro,
-        unexpectedToken,expectedToken,templateInInstantiation,
-        namespaceNotAllowedInCurrentScope,
-        notMember,
-        notMemberDependent,
-        isDependentType
-        noType,
-        type_mismatch,
-        memberMethodNotPreviouslyDeclared,
-        memberConstructorNotPreviouslDeclared,
-        memberNotPreviouslyDeclared,
-    };
-    enum w{
-        return_in_non_void,
-        
-    };
+   
+   
     std::string getLex(lex& s){
         switch(s.t){
 case lex::ty::Name: {return std::string("Name")+std::string(s.u.name);}
@@ -221,33 +201,6 @@ case lex::ty::typeName: {return std::string("typeName")+std::string(s.u.name);}
 case lex::ty::typeNameConstructor: {return std::string("typeNameConstructor")+std::string(s.u.name);}
 case lex::ty::member: {return std::string("member")+std::string(s.u.name);}
 case lex::ty::swizzle: {return std::string("swizzle")+std::string(s.u.name);}
-case lex::ty::escape:  { return std::string(lex::ty::escape);}
-case lex::ty::Not:  { return std::string(lex::ty::Not);}
-case lex::ty::lparen:  { return std::string(lex::ty::lparen);}
-case lex::ty::rparen:  { return std::string(lex::ty::rparen);}
-case lex::ty::lbrace:  { return std::string(lex::ty::lbrace);}
-case lex::ty::rbrace:  { return std::string(lex::ty::rbrace);}
-case lex::ty::lbrack:  { return std::string(lex::ty::lbrack);}
-case lex::ty::rbrack:  { return std::string(lex::ty::rbrack);}
-case lex::ty::dq:  { return std::string(lex::ty::dq); }
-case lex::ty::sq:  { return std::string(lex::ty::sq); }
-case lex::ty::dot:  { return std::string(lex::ty::dot); }
-case lex::ty::plus:  { return std::string(lex::ty::plus); }
-case lex::ty::minus:  { return std::string(lex::ty::minus); }
-case lex::ty::band:  { return std::string(lex::ty::band); }
-case lex::ty::bor:  { return std::string(lex::ty::bor); }
-case lex::ty::bxor:  { return std::string(lex::ty::bxor); }
-case lex::ty::mul:  { return std::string(lex::ty::mul); }
-case lex::ty::div:  { return std::string(lex::ty::div); }
-case lex::ty::ltangle:{return std::string('<');}
-case lex::ty::gtangle:{return std::string('>');}
-case lex::ty::comma:{return std::string('n');}
-case lex::ty::semicolon:{return std::string(';');}
-case lex::ty::colon:{return std::string(':');}
-case lex::ty::space:{return std::string(' ');}
-case lex::ty::cond:{return std::string('?');}
-case lex::ty::nl:{return std::string('\n');}
-case lex::ty::str:{return std::string(lex::ty::str);}
 case lex::ty::dcolon:{return std::string("::");}
 case lex::ty::pack:{return std::string("...");}
 case lex::ty::tokpaste {return std::string();}
@@ -255,7 +208,8 @@ case lex::ty::pp {return std::string("++");}
 case lex::ty::mm {return std::string("--");}
 case lex::ty::oand {return std::string("&&");}
 case lex::ty::oor {return std::string("||");}
-        };
+default : {return std::string(s.t);}
+};
     } ;
     std::string goTo(stmsl::parser& p,lex l){
         size_t sp = p.f.tellg();
@@ -264,6 +218,9 @@ case lex::ty::oor {return std::string("||");}
         std::getline(f,line);
         p.f.seekg(sp);
         return line;
+    };
+    std::string getRange(stmsl::parser& p,lex& start,lex& end){
+        p.f.seekg()
     };
     template <typename... Ts >
     struct typesPassed{
@@ -367,10 +324,12 @@ case lex::ty::oor {return std::string("||");}
 class syst {
 
 
+bool preProc=true;bool compile=false;bool assemble=false;bool link=false;
+void preprocOnly(){preProc=true;compile=false;assemble=false;link=false;}
+void preprocAndCompileOnly(){preProc=true;compile=true;assemble=false;link=false;}
+void compileAndAssembleNoLink(){preProc=true;compile=true;assemble=true;link=false;}
+preProc=true;stmtsl::sys.compile=true;stmsl::sys.assemble=false;stmsl::sys.link=false
 bool CPH=false;bool CPHU=false;
-bool preprocAndCompileOnly= false;
-bool preprocOnly= false;
-
 bool fauto_bind_uniforms = false;
 bool fauto_map_locations=false;
 std::string entry_pt ="main";

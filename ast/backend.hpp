@@ -23,9 +23,7 @@ namespace stmsl
     }
 
     template <Str s , e En>
-    struct tr : pri::CEStr<s> {
-        static constexpr e t = En;
-    }
+    struct tr : pri::CEStr<s> {static constexpr e t = En;};
 #define TRTEMP(n) using tr_##n = tr<#n,e::n>;
 XMAC_TARGET(TRTEMP)
 using tr_x86_64 = tr<"x86-64",e::x86_64>;

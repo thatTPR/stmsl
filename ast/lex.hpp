@@ -23,13 +23,13 @@ namespace stmsl {
                 lbrace='{',
                 rbrace='}',
                 lbrack='[',
-                rbrack=']',ldi,rdi,
+                rbrack=']',ldi,rdi,//[[,]]
                 dq='\"',
                 sq='\'',
                 dot='.',
                 plus='+',
                 minus='-',
-                mod='&',modeq,
+                mod='%',modeq,
                 band='&',
                 bor='|',
                 bxor='^',xoreq,
@@ -53,6 +53,10 @@ namespace stmsl {
                 str="#",tokpaste,
                 none
             };
+
+            #define LEX_OPER comma,plus,minus,mod,modeq,band,bor,bxor,mul,lteq,strmlt,strmlteq,arrow,gteq,strmgt,strmgteq,peq,meq,andeq,oreq,Noteq,muleq,diveq,eqeq,pp,mm,oand,oor
+            #define LEX_OP2 lparen,lbrack
+            
             ty t;
             union {
                 float flt;int unum;

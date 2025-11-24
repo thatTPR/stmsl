@@ -39,25 +39,58 @@ indicates that the function definition should be optimized for invocation from a
 
 */
 
-enum EnAt {
-Atnoreturn,Atcarries_dependency,At_deprecated,at_fallthrough,at_maybe_unused,at_nodiscard,at_likely,at_likely,at_no_unique_address,at_assume,at_indeterminate,at_optimize_for_synchronized
-}
-template <Str s,typename STMTT,EnAt eat,typename Args=void>
+enum class EnAt {e_noreturn,e_carries_dependency,e_deprecated,e_fallthrough,e_maybe_unused,e_nodiscard,e_likely,e_likely,e_no_unique_address,e_assume,e_indeterminate,e_optimize_for_synchronized}
+template <Str s,,EnAt eat,typename... stTys>
 struct at {
-    using argty= argsty;
-    static constexpr bool EnAt at=eat;
+    static constexpr bool EnAt att=eat;
+    pri::array<stmt::stmtty> tys = {stmt::getTyf<stTys>()...};
+
+    template <stmt::sttmty t,stmt::stmtty... Tys>
+    void _Default(stmtty& v,stmt::allvarptr& p){
+        if(v==t){pri::get<t*>(p)->atse.push_back(att);}
+        else if constexpr( sizeof...(Tys)>0){_Default<Tys...>(v,p)}
+    }
+    void Default(stmtty& v,stmt::allvarptr& p){
+        _Default<stmt::getTyf<stTys...>>(v,p)
+    }
+    bool isTyValid(stmt::stmtty& v){
+        for( stmt::stmty& r : tys){if(v==r){return true;}}
+        return false;
+    }
+    void _func(attrib& at,stmt::stmtty& ty,stmt::allvar& p){Default(ty,p)};
+    void func(attrib& at,stmt::stmtty& ty,stmt::allvarptr& v){
+        if(!isTyValid()){throw AttributeNotForStmt(ty);}
+        _func(ty,v);
+    }
     std::string check(std::string& str){return s.get()==str;}
 };
 
-using at_noreturn = at<"noreturn",stmt<temp::meta>::FuncDef,EnAt::Atnoreturn>;
-using at_carries_dependency = at<"carries_dependency",stmt<temp::meta>::FuncDef,EnAt::Atcarries_dependency>;
-using at_deprecated = at<"deprecated",stmt<temp::meta>,EnAt::At_deprecated,std::string>;
-using at_fallthrough = at<"fallthrough",stmt<temp::meta>,EnAt::at_fallthrough>;
-using at_maybe_unused = at<"maybe_unused",stmt<temp::meta>,EnAt::at_maybe_unused>;
-using at_nodiscard = at<"nodiscard",stmt<temp::meta>,EnAt::at_nodiscard,std::string>;
-using at_likely = at<"likely",stmt<temp::meta>,EnAt::at_likely>;
-using at_unlikely = at<"unlikely",stmt<temp::meta>,EnAt::at_likely>;
-using at_no_unique_address = at<"no_unique_address",stmt<temp::meta>,EnAt::at_no_unique_address>;
-using at_assume = at<"assume",stmt<temp::meta>,EnAt::at_assume,expr<temp::meta>>;
-using at_indeterminate = at<"indeterminate",stmt<temp::meta>,EnAt::at_indeterminate>;
-using at_optimize_for_synchronized = at<"optimize_for_synchronized",stmt<temp::meta>,EnAt::at_optimize_for_synchronized>;
+using at_noreturn : at<"noreturn",EnAt::e_noreturn,stmt::FuncDecl,stmt::FuncDef>;
+using at_carries_dependency : at<"carries_dependency",EnAt::e_carries_dependency,stmt::FuncDecl,stmt::FuncDef>;
+using at_deprecated : at<"deprecated",EnAt::e_deprecated,stmt::DeclType,stmt::DefType,stmt::TypeDef,stmt::VarDecl,stmt::FuncDecl,stmt::FuncDef,stmt::NS,stmt::Enum>;  
+using at_fallthrough : at<"fallthrough",EnAt::e_fallthrough,stmt::Case>;
+using at_maybe_unused : at<"maybe_unused",EnAt::e_maybe_unused,stmt::DeclType,stmt::DefType,stmt;:VarDecl,stmt::Enum,stmt::Enum::EnMember,stmt::StructuredBinding>;//  See c++26 ResultBinding feat
+using at_nodiscard : at<"nodiscard",EnAt::e_nodiscard,stmt::FuncDecl,stmt::FuncDef,stmt::Enum,stmt::DeclType>;
+using at_likely : at<"likely",EnAt::e_likely,stmt::FuncDecl,stmt::FuncDef>;
+using at_unlikely : at<"unlikely",EnAt::e_likely,stmt::FuncDecl,stmt::FuncDef>;
+using at_no_unique_address : at<"no_unique_address",EnAt::e_no_unique_address,stmt::VarDecl>;
+using at_assume : at<"assume",EnAt::e_assume,stmt::NullStmt>{};
+using at_indeterminate : at<"indeterminate",EnAt::e_indeterminate,stmt::VarDecl>;
+using at_optimize_for_synchronized : at<"optimize_for_synchronized",EnAt::e_optimize_for_synchronized,stmt::FuncDef,smtt::FuncDecl>;
+
+
+
+
+struct attribute {
+    std::string name;EnAt eat;
+std::array<stmt::stmtty>& sts;
+    bool operator==(std::string n){return n==name;}
+    void (*func)(attrib& at,stmt::stmtty& sts,stmt::allvarptr& v);
+
+    attribute(std::string n,EnAt _e,void (*proc)(stmt::stmtty&,stmt::allvarptr&) , std::array<stmt::stmtty>& res) : name(n), eat(_e), func(proc),sts(res) {}
+    
+};
+#define XATTRIB(x) x(at_noreturn), x(at_carries_dependency),x(at_deprecated) x(at_fallthrough), x(at_maybe_unused), x(at_nodiscard), x(at_likely), x(at_unlikely), x(at_no_unique_address), x(at_assume), x(at_indeterminate), x(at_optimize_for_synchronized)
+#defien ATTRIBM(at) attribute(at::str(),at::att, &at::func,at::tys) 
+pri::list<attribute> attribs{XATTRIB(ATTRIBM)};
+
