@@ -152,7 +152,7 @@ macrosl macros;
         posit& posb(){return pos.back()};
         ast<temp::meta>* cast;     
         pcntxt cntxt ;
-                pri::stack<std::ifstream> f;pri::stack<std::filesystem::path> curFilePath;
+        pri::stack<std::ifstream> f;pri::stack<std::filesystem::path> curFilePath;
 
         bool interval(char c,char a,char b){return c>=a and c<=b ;}
         bool isdigit(char c){return interval(c,'0,'9);}
@@ -166,8 +166,6 @@ macrosl macros;
         
         using tylexq=pri::deque<lex>;
         pri::deque<lex> lexq;
-// size_t Mag=0;
-        pri::stack<lex::ty> opens;
         void erase(){lexq.clear();};
 
         template <lex::ty t>struct openedt{static constexpr lex::ty l;}
@@ -211,8 +209,42 @@ macrosl macros;
                 }
             }while(NewLine());
         };
-  
+        
+        template <lex::ty T,lex::ty... Ts>
+        bool _OneOfLex(lex l){return pri::OneOf<lex::ty,T,Ts...>(l);}
+        
+        template <lex::ty T,lex::ty... Ts>
+        bool OneOfLex(){return _OneOfLex<T,Ts...>(lexitback().t);}
 
+        template <typename Kw,typename... Kws>
+        bool OneOfKw(){
+            if(KW::check(lexitback().u.name)){return true;}
+            else if constexpr(sizeof...(Kws)){return OneOfKw<Kws...>(str);}
+            else return false;
+        };
+      
+        using lexres=pri::deque<pri::deque<lex>::iter>;
+       
+        template <lex::ty to,lex::ty... tos>
+        void untilLex(){for(;!OneOfLex<to,tos...>();nextTOK()){}}
+        template <lex::ty to,lex::ty... tok>
+        void until(){
+            for(;OneOfLex<lex::ty::to>() ;nextTOK()){
+                if(!OneOfLex<tok...>()){throw UnexpectedToken(lexitback());}
+            };
+        };
+        template <lex::ty to,lex::ty... tok>
+        bool untilWarn(){bool wrn=false;
+            for(;lexptrback()->t!=to ;nextTOK()){
+                if(!OneOfLex<tok...>()){wrn=true;}
+            };
+            return wrn;
+        };
+        template <lex::ty t,lex::ty... ts>
+        void untilDif(){while(OneOfLex<t,ts...>(lexptrback()->t)){nextTOK();}};
+        template <lex::ty... ts>
+        void untilOneOf(){while(!OneOfLex<t,ts>()){nextTOK();}}
+        
                char getCharLit(){
             char res;
             ++posb();
@@ -467,42 +499,6 @@ return res;
             
     };
    
-        template <lex::ty T,lex::ty... Ts>
-        bool _OneOfLex(lex l){return pri::OneOf<lex::ty,T,Ts...>(l);}
-        
-
-        template <lex::ty T,lex::ty... Ts>
-        bool OneOfLex(){return OneOfLex<lex::ty,T,Ts...>(lexitback().t);}
-        
-
-        template <typename Kw,typename... Kws>
-        bool OneOfKw(){
-            if(KW::check(lexitback().u.name)){return true;}
-            else if constexpr(sizeof...(Kws)){return OneOfKw<Kws...>(str);}
-            else return false;
-        };
-      
-        using lexres=pri::deque<pri::deque<lex>::iter>;
-       
-        
-        template <lex::ty to,lex::ty... tok>
-        void until(){
-            for(;lexptrback()->t!=to ;nextTOK()){
-                if(!OneOfLex<tok...>()){throw UnexpectedToken(lexitback());}
-            };
-        };
-        template <lex::ty to,lex::ty... tok>
-        bool untilWarn(){bool wrn=false;
-            for(;lexptrback()->t!=to ;nextTOK()){
-                if(!OneOfLex<tok...>()){wrn=true;}
-            };
-            return wrn;
-        };
-        template <lex::ty t,lex::ty... ts>
-        void untilDif(){while(OneOfLex<t,ts...>(lexptrback()->t)){nextTOK();}};
-        template <lex::ty... ts>
-        void untilOneOf(){while(!OneOfLex<t,ts>()){nextTOK();}}
-        
    
         template <lex::ty fromTok,lex::ty toTok,template <temp q> typename T>
         T<temp::meta> _getFromUntil(){return getFromUntil<fromTok,toTok,T<temp::meta>();};
@@ -540,6 +536,7 @@ return res;
 
         template <typename KW,typename... KWs>
         bool kwFound(){
+            if constexpr (KW::KW_SET){return KW::found(*this);}
             if constexpr (KW::check(lexitback().u.name)){KW::proc(*this);return true;}
             if constexpr (sizeof...(KWs)>0){return kwFound<KWs>();}
             return false;
@@ -593,19 +590,14 @@ return res;
             else {return op::ty::opType;} 
             }
         }
-        
-        void refPtr(accMember_seq& acc){
-            if(OneOfLex<lex::ty::mul>()){acc.ptrNum+=lexitback().u.unum;}
-                if(OneOfLex<lex::ty::band>()){acc.refNum++;}
-                else if(OneOfLex<lex::ty::oand>()){acc.refNum+=2;}
-        };
+        template <lex::ty l>
         stmt::init_args getArgInit(){stmt::init_args args;
-            for(;!OneOfLex<lex::ty::rparen>();){nextTOK();
+            for(;!OneOfLex<l>();){nextTOK();
                 args.push_back(getExpr<lex::ty::comma,lex::ty::rparen>());};return args;};
         
         template <bool pren> 
         void procAccMem(accMember_seq& res){
-              expectErr<lex::ty::Name>();
+              if(!OneOfLex<lex::ty::Name>()){if(OneOfLex<LEX_ACC>(){err::e(*this,UnexpectedToken(lexitback().t))});return;};
                  if(OneOfKw<kw_Operator>()){
                     res.emplace_back(accMember::result::rOperator);
                     res.back().oprt=getOperator();}
@@ -631,15 +623,15 @@ return res;
                 if(OneOfLex<lex::ty::ltangle>()){res.back().plist=get<temp::inst,param_list>();nextTOK();res.back().Template=true;}
                     
                 if(OneOfLex<lex::ty::lparen>()){
-                    if constexpr(pren){res.back().args=getArgInit();nextTOK();}else {return;};}
-                    if(OneOfLex<LEX_ACC>()){res.back().acc=lexitback().t;};
+                    if constexpr(pren){res.back().args=getArgInit<lex::ty::lparen>();nextTOK();}else {return;};}
+                    if(OneOfLex<LEX_ACC>()){res.back().acc=lexitback().t;};                    
         };
         static constexpr bool pren_false = false; 
         static constexpr bool pren_true = true; 
         template <bool pren=true> accMember_seq get_accMember_seq(){
             accMember_seq res;res.pos=lexitback().pos;res.acc=lex::ty::none;
             if(lexitback().t==lex::ty::dcolon){res.globalAcc=true;nextTOK();}
-              procAccMem<pren>(res);
+              procAccMem<pren>(res);if constexpr (!pren) {if(OneOfLex<lex::ty::lparen>(){return;})
             do{ nextTOK();procAccMem<pren>(res);}while(OneOfLex<LEX_ACC>());
         };        
 
@@ -677,7 +669,7 @@ return res;
         };
         template<>value get_value<value::ty::ptrmember>(){expectErr<lex::ty::band>();
             value res;res.t=value::ty::ptrmember;res.tt=value::truTy::eaccList;
-            pri::get<accMember_seq>(res.val)=get_accMember_seq<lex::ty::lparen>();
+            pri::get<accMember_seq>(res.val)=get_accMember_seq();
         };
 
         template <lex::ty... l> 
@@ -718,8 +710,8 @@ return res;
                 }
                 else {
                      if(lexitback().t==lex::ty::Name){res.t=param<temp::meta>::ty::Type;
-                        res.tp = get_accMember_seq();
-                        res.memberList = get_accMember_seq();
+                        res.tp = get_accMember_seq<false>();
+                        res.memberList = get_accMember_seq<false>();
                         }
                         if(OneOfLex<lex::ty::mul>()){res.t=param<temp::meta>::ty::PtrToMember};
                         else {res.name=res.memberList.back().name; res.memberList.clear();}
@@ -771,6 +763,15 @@ return res;
             expectErr<lex::ty::rparen>();
             cast->pushStmt<stmt::VarDecl>(stmt::VarDecl(vl));
         };
+        bool getDType(dtype& tp){
+            if constexpr (lang == language::cpp ){bool b=false;
+                if(OneOfLex<lex::ty::mul>()){tp.ptrNum=lexitback().u.unum;b=true;}
+                if(OneOfLex<lex::ty::band>()){tp.refNum++;b=true;}
+                else if(OneOfLex<lex::ty::oand>()){tp.refNum+=2;b=true;}
+                if(OneOfLex<lex::ty::lbrack>()){tp.arrSize=getExpr<lex::ty::rbrack>();b=true;}
+                return b;
+            };
+        }
         template <lex::ty... l >
         stmt::VarDecl getVarDecl(){
             stmt::VarDecl vdecl;
@@ -779,6 +780,7 @@ return res;
                 else if(kw_out::check(lexitback().u.name)){vdecl.out=true;};
                 else if(kw_inout::check(lexitback().u.name)){vdecl.in=true;vdecl.out=true;};
                 else if(kw_const::check(lexitback().u.name)){vdecl.Const=true;};
+
                 else {break;}
             };
             if(kw_Auto::check(lexitback().u.name)){vdecl.Auto=true;}
@@ -786,11 +788,8 @@ return res;
                 pri::get<value>(vdecl.tp.back().inst)=handleDeclType();vdecl.tp.back().t=result::rValue;
             }
             else {vdecl.tp = get_value<value::ty::typeValue>();}
-            if constexpr (lang == language::cpp ){
-                if(OneOfLex<lex::ty::mul>()){vdecl.tp.ptrNum=lexitback().u.unum;}
-                if(OneOfLex<lex::ty::band>()){vdecl.refNum++;}
-                else if(OneOfLex<lex::ty::oand>()){vdecl.refNum+=2;}
-            }
+            if(OneOfLex<lex::ty::pack>()){vedecl.pack=true;}
+            else {getDtype(vdecl.tp.dt);}
             expectErr<lex::ty::Name>();{vdecl.name=lexitback().u.name;nextTOK();}
             if(lexitback().t==lex::ty::lbrack){nextTOK();vdecl.tp.arrSize=getExpr<lex::ty::rbrack>();nextTOK();}
             if(lexitback().t==lex::ty::eq){vdecl.DefaultValue=getExpr<l...>();return vdecl;}
@@ -798,11 +797,9 @@ return res;
             return vdecl;
         };
         stmt::arg_list getArgList(){  stmt::arg_list args;
-                for(;!OneOfLex<lex::ty::rparen>();nextTOK()){
-                    if constexpr (lang==language::spv){while(kwFound<KW_LYTQ,kw_Const>){nextTOK();}}
-                    if constexpr (lang==language::cpp){while(kwFound<kw_Const>){nextTOK();}}
-                    args.push_back(getExpr<lex::ty::comma,lex::ty::rparen>());
-                };
+                for(;!OneOfLex<lex::ty::rparen>();nextTOK()){args.push_back(getVarDecl<lex::ty::comma,lex::ty::rparen>());};
+                auto it = args.begin();
+                for(;it!=args.end() ;++it){if(it.pack() and (it!=args.tail())){err::e(*this,ArgListPackNotAtEnd(args))}}
                 return args;
         };
         template <lex::ty until>
@@ -814,7 +811,7 @@ return res;
 
 
         template <lex::ty... l> 
-        expr getExprName(){expr res;
+        void getExprName(expr& res){
             if(OneOfKw<kw_New>()){res.push<op::ty::opNew,expr::node::opty::prefixUnary>();nextTOK();}
             else if(OneOfKw<kw_Delete>()){res.push<op::ty::opNew,expr::node::opty::prefixUnary>();nextTOK();}
             else if(OneOfKw<kw_Noexcept>()){res.push<op::ty::opNoExcept,expr::node::opt::prefixUnary>();
@@ -822,11 +819,9 @@ return res;
             
         if(OneOfKw<kw_sizeof>()){res.push<op::ty::opSizeof>();return;}
         nextTOK();expectErr<lex::ty::lparen>();ret.emplace( getExpr<lex::ty::rparen>());return ret;
-
-                accMember_seq accl = get_accMember_seq<l...>();
-
+                accMember_seq accl = get_accMember_seq<true>();
                 if(!accl.back().args.empty()){res.emplace(value(accl,value<temp::meta>::ty::funcCall));}
-                else if(OneOfLex<lex::ty::lbrack>()){nextTOK();res.emplace(value(getInitArgs<lex::ty::rbrack>()),value::ty::initlist);}
+                else if(OneOfLex<lex::ty::lbrace>()){nextTOK();res.emplace(value(getInitArgs<lex::ty::rbrace>()),value::ty::initlist);}
             return res;
         };
         
@@ -901,74 +896,75 @@ return res;
             value vl;vl.t=value::lambdav;pri::get<lambda<temp::meta>>(vl.val)=res;
             return res;
         };
-        template <lex::ty... l>
-        void ContinueExpr(expr& res){
-            if(lexitback().t==lex::ty::lbrack){res.tree.val = getLambda();return res;};
-            auto prevName = [&res](){return res.e.back() };
-            auto unary = <op::ty opT>[&](){if(prevName()){res.add<opT,expr::node::opty::postfixUnary>()}else{res.push<opT,expr::node::opty::prefixUnary>()}}
-            stmt::FuncDecl fdecl;type<temp::inst> restt;
-            for(;!OneOfLex<l...>(lexptrback()->t);nextTOK()){
-                switch(lexitback().t){
+        void SwExpr(expr& res){
+            switch(lexitback().t){
                     case lex::ty::dcolon : {res.push(getExprName<l...>());}
                     case lex::ty::Name :{
-                        if(lexitback().u.name==std::string("true")){res.pushLiteral(true);break;}
+                        if(OneOfKw<kw_and>()){res.push<op::ty::opand>();break;}
+                        else if(OneOfKw<kw_or>()){res.push<op::ty::opor>();break;}
+                        else if(OneOfKw<kw_xor>()){res.push<op::ty::opxor>();break;}
+                        else if(lexitback().u.name==std::string("true")){res.pushLiteral(true);break;}
                         else if(lexitback().u.name==std::string("false")){res.pushLiteral(false);break;}
                         if(kwFound<KW_LYTQ,KW_QUAL>()){while(kwFound<KW_LYTQ,KW_QUAL>()){nextTOK();}pubQuals(res);break;}
-                        res.emplace(getExprName<l...>());}
+                        res.emplace(getExprName<l...>(res));}
                     case lex::ty::Numflt:{res.pushLiteral(lexitback().u.flt);};
                     case lex::ty::Numuint:{res.pushLiteral(lexitback().u.num);};
                     case lex::ty::bnot : {res.push<op::ty::opbnot>();break;};
                     case lex::ty::band:{res.add<op::ty::oband>();break;}
-                    case lex::ty::dot:{res.add<op::ty::opdot,expr::node::opty::binary>();break;}
-                    case lex::ty::arrow:{res.add<op::ty::arrow,expr::node::opty::binary>();break;}
+                    case lex::ty::dot:{res.add<op::ty::opdot>();break;}
+                    case lex::ty::arrow:{res.add<op::ty::arrow>();break;}
                     
                     #ifdef CHAR_LITERALS
                     case lex::ty::sq :{res.pushLiteral(lexitback().u.chr);}
                     case lex::ty::dq :{res.pushLiteral(lexitback().u.name);}
                     #endif
                     case lex::ty::lparen:{nextTOK();
-                        if(!res.e.back().TrailOp()){res.addFuncCall(getArgInit());};
-                        else{res.pushExpr(getExpr<lex::ty::rparen>());break;}}
-                    case lex::ty::rparen:{}
+                        if(!res.e.back().TrailOp()){res.addArgs(getArgInit<lex::ty::rparen>());};
+                        else{res.pushExpr<op::ty::ocall>(getExpr<lex::ty::rparen>());break;}}
+                    case lex::ty::rparen:{err::e(&this,UnexpectedToken());break;}
                     case lex::ty::lbrace:{ nextTOK();res.emplace(getInitArgs<lex::ty::rbrace>());break;}
-                    case lex::ty::lbrack:{res.push<op::ty::oindex>(); res.push(getExpr<lex::ty::rbrack>());break;}// TODO C++23 support multiple index arguments
-                    case lex::ty::Not:{res.push<op::ty::opNot,expr::node::opty::prefixUnary>();break;}
-                    case lex::ty::plus:{res.add<op::ty::oplus>();break;}
-                    case lex::ty::minus:{res.add<op::ty::ominus>();break;}
-                    case lex::ty::bor:{res.add<op::ty::obor>();break;}
-                    case lex::ty::bxor:{res.add<op::ty::obxor>();break;}
-                    case lex::ty::mul:{res.add<op::ty::omul>();if(lexitback().u.unum>1){res.refNum=lexitback().u.unum;} break;}
-                    case lex::ty::div:{res.add<op::ty::odiv>();break;}
+                    case lex::ty::lbrack:{res.push<op::ty::oindex>(); res.addArgs<false>()(getArgInit<lex::ty::rbrack>());break;}
+                    case lex::ty::Not:{res.push<op::ty::opNot>();break;}
+                    case lex::ty::plus:{res.push<op::ty::oplus>();break;}
+                    case lex::ty::minus:{res.push<op::ty::ominus>();break;}
+                    case lex::ty::bor:{res.push<op::ty::obor>();break;}
+                    case lex::ty::bxor:{res.push<op::ty::obxor>();break;}
+                    case lex::ty::mul:{res.push<op::ty::omul>();if(lexitback().u.unum>1){res.refNum=lexitback().u.unum;} break;}
+                    case lex::ty::div:{res.push<op::ty::odiv>();break;}
                     case lex::ty::ltangle:{if(!atTemplateType){res.add<op::ty::olt>()};break;}
-                    case lex::ty::lteq:{res.add<op::ty::ogt>();break;}
-                    case lex::ty::gtangle:{res.add<op::ty::ogt>();break;}
+                    case lex::ty::lteq:{res.push<op::ty::ogt>();break;}
+                    case lex::ty::gtangle:{res.push<op::ty::ogt>();break;}
                     case lex::ty::gteq:{res.add<op::ty::ogteq>();break;}
                     case lex::ty::comma:{err::e<err::t::unexpectedToken>(*this);break;}
                     case lex::ty::semicolon:{return res;}
                     case lex::ty::colon:{res.add<op::ty::opcolon>();break;}
                     case lex::ty::space:{break;}
-                    case lex::ty::cond:{res.add<op::ty::cond,expr::node::opty::ternary>();atCond=true;
+                    case lex::ty::cond:{res.push<op::ty::opcond>();atCond=true;
                             nextTOK();res.emplace(getExpr<lex::ty::colon,l...>());expectErr<lex::ty::colon>();
                             res.push<op::ty::opcolon,expr::node::opty::binary>();
                             nextTOK();if(OneOfLex<lex::ty::lparen>()){res.emplace(getExpr<lex::ty::rparen,l...>());expectErr<lex::ty::rparen>();nextTOK();}                        
                         break;}
-                    case lex::ty::eq:{res.add<op::ty::eq>();break;}
-                    case lex::ty::peq:{res.add<op::ty::opeq>();break;}
-                    case lex::ty::meq:{res.add<op::ty::omeq>();break;}
-                    case lex::ty::xoreq:{res.add<op::ty::opxoreq>();break;}
-                    case lex::ty::andeq:{res.add<op::ty::opandeq>();break;}
-                    case lex::ty::oreq:{res.add<op::ty::oporeq>();break;}
-                    case lex::ty::Noteq:{res.add<op::ty::opNoteq>();break;}
-                    case lex::ty::muleq:{res.add<op::ty::opmuleq>();break;}
-                    case lex::ty::diveq:{res.add<op::ty::opdiveq>();break;}
-                    case lex::ty::pack:{unary<op::ty::oppack>();break;}
-                    case lex::ty::oand:{res.add<op::ty::opand>();break;}
-                    case lex::ty::oor:{res.add<op::ty::opor>();break;}
-                    case lex::ty::three:{res.add<op::ty::opthree>();break;}
-                    case lex::ty::pp:{unary<op::ty::opp>();break;}
-                    case lex::ty::mm:{unary<op::ty::omm>();break;}
+                    case lex::ty::eq:{res.push<op::ty::eq>();break;}
+                    case lex::ty::peq:{res.push<op::ty::opeq>();break;}
+                    case lex::ty::meq:{res.push<op::ty::omeq>();break;}
+                    case lex::ty::xoreq:{res.push<op::ty::opxoreq>();break;}
+                    case lex::ty::andeq:{res.push<op::ty::opandeq>();break;}
+                    case lex::ty::oreq:{res.push<op::ty::oporeq>();break;}
+                    case lex::ty::Noteq:{res.push<op::ty::opNoteq>();break;}
+                    case lex::ty::muleq:{res.push<op::ty::opmuleq>();break;}
+                    case lex::ty::diveq:{res.push<op::ty::opdiveq>();break;}
+                    case lex::ty::pack:{res.push<op::ty::oppack>();break;}
+                    case lex::ty::oand:{res.push<op::ty::opand>();break;}
+                    case lex::ty::oor:{res.push<op::ty::opor>();break;}
+                    case lex::ty::three:{res.push<op::ty::opthree>();break;}
+                    case lex::ty::pp:{res.push<op::ty::opp>();break;}
+                    case lex::ty::mm:{res.push<op::ty::omm>();break;}
                 }
-            }
+        };
+        template <lex::ty... l>
+        void ContinueExpr(expr& res){
+            if(lexitback().t==lex::ty::lbrack){res.tree.val = getLambda();return res;};
+            for(;!OneOfLex<l...>(lexptrback()->t);nextTOK()){SwExpr(res);}
             return res;
         };
         
@@ -1111,38 +1107,26 @@ return res;
         };
         
         template <cntxt c>void _getStmt<stmt::If,c>(){
-            stmt::If* r=cast->pushStmt<stmt::If>(stmt::If(getExpr<lex::ty::rparen>())); pushats(&res->atlist);
-            if(OneOfKw<kw_ConstExpr>(lexitback().u.name)){r->push(qual::QConstExpr);nextTOK();}
-            if(OneOfKw<kw_ConstEval>(lexitback().u.name)){r->push(qual::QConstEval);nextTOK();}
-            expectErr<lex::ty::lparen>();nextTOK();
-            r->condition = GetExpr<lex::ty::rparen();
-            nextTOK();cast->curBl.push_back(&r->body);
-            if(OneOfLex<lex::ty::lbrace>()){
-                nextTOK();
-                for(nextTOK();!OneOfLex<lex::ty::rbrace>();nextTOK()){StmtPush<c>();}
-            }
-            else {StmtPush<c>();}
-            nextTOK();cast->curBl.pop_back();
-            nextTOK();
-            stmt::Else* el;
-            if(OneOfKw<kw_Else>()){el = cast->pushStmt<stmt::Else>(stmt::Else(r));r->el=el;} 
-            while (true){
-                nextTOK();
-                if(OneOfKw<kw_If>()){r->el->cond=true;
-                    if(OneOfKw<kw_ConstExpr>(lexitback().u.name)){el->push(qual::QConstExpr);nextTOK();}
-                    if(OneOfKw<kw_ConstEval>(lexitback().u.name)){el->push(qual::QConstEval);nextTOK();}
-                    expectErr<lex::ty::lparen>();
-                    el->condtion = GetExpr();
+            
+            stmt::If* res=cast->pushStmt<stmt::If>(stmt::If()); pushats(&res->atlist);
+            stmt::If* r =res;nextTOK();r->If=true;
+            for(nextTOK();true;){
+                if(OneOfKw<kw_ConstExpr>(lexitback().u.name)){r->push(qual::QConstExpr);nextTOK();}
+                if(OneOfKw<kw_ConstEval>(lexitback().u.name)){r->push(qual::QConstEval);nextTOK();}
+                expectErr<lex::ty::lparen>();nextTOK();
+                r->condition = GetExpr<lex::ty::rparen>();
+                nextTOK();cast->curBl.push_back(&r->body);
+                if(OneOfLex<lex::ty::lbrace>()){
+                    nextTOK();
+                    for(nextTOK();!OneOfLex<lex::ty::rbrace>();nextTOK()){StmtPush<c>();}
                 }
-                nextTOK();
-                    if(OneOfLex<lex::ty::lbrace>()){
-                        nextTOK();
-                        for(nextTOK();!OneOfLex<lex::ty::rbrace>();nextTOK()){StmtPush<c>();}
-                    }
-                    else {StmtPush<c>();}
-                if(OneOfKw<kw_Else>()){el->el = cast->pushStmt<stmt::Else>(stmt::Else(r));el=el->el;}
-                else return;
-            }
+                else {StmtPush<c>();}
+                nextTOK();cast->curBl.pop_back();
+                if(OneOfKw<kw_Else>()){
+                    if(!r->If){err::e(*this,KwError<kw_Else>())}
+                    r=cast->pushStmt(stmt::If());}
+                nextTOK();if(OneOfKw<kw_If>()){r->If=true;nextTOK();}
+            };
             
         };
         template <cntxt c> void _getStmt<stmt::Goto,Stct,Func>(){
@@ -1466,11 +1450,7 @@ return res;
         void checkStrct(bool bTemp=false,stmt::param_list& plist={}){
              accMember_seq accl = get_accMember_seq<lex::ty::semicolon>();
                         accMember_seq acc;size_t ptrNum=0;size_t refNum=0; 
-                        if constexpr(lang==language::cpp){
-                for(nextTOK();OneOfLex<lex::ty::mul>();nextTOK()){ptrNum++;}
-                if(OneOfLex<lex::ty::band>()){refNum++;}
-                else if(OneOfLex<lex::ty::oand>()){refNum+=2;}
-                        }
+                       getDtype(accl.dt);
                         if (OneOfLex<lex::ty::Name>()){
                             acc = get_accMember_seq<lex::ty::semicolon>();
                             if(acc.size()>1){expectErr<lex::ty::mul>(); nextTOK();expectErr<lex::ty::Name>();
@@ -1506,11 +1486,7 @@ return res;
             accMember_seq accl = get_accMember_seq<false>();
             if(OneOfKw<kw_Operator>()){Operator<c>(bTem,plist,accl);return;}
             accMember_seq acc;
-            if constexpr(lang==language::cpp){
-                if(OneOfLex<lex::ty::mul>()){acc.ptrNum+=lexitback().u.unum;}
-                if(OneOfLex<lex::ty::band>()){acc.refNum++;}
-                else if(OneOfLex<lex::ty::oand>()){acc.refNum+=2;}
-            }
+            if(getDtype(accl.dt));
             if(OneOfLex<lex::ty::Name>()){
                 acc = get_accMember_seq<false>();
                 if(acc.size()>1){
@@ -1562,7 +1538,7 @@ return res;
                     else {res = &alr.top();}
                     if constexpr(Union){res->t.isUnion=true;}
                     res->curacc=access;cast->strcts.push_back(res);res->inherits =inh;
-                        for(nextTOK();!OneOfLex<lex::ty::rbrace>();nextTOK()){PushStmt<cntxt::strct>();}
+                        for(nextTOK();!OneOfLex<lex::ty::rbrace>();nextTOK()){StmtPush<cntxt::strct>();}
                         res->resolve(*cast);
                         cast->strct.pop_back();
                 };
@@ -1593,24 +1569,41 @@ return res;
             expectErr<lex::ty::eq>();nextTOK();
             res->expr = get_accMember_seq<lex::ty::semicolon>();
         };        
+        void StructuredBinding(){
+            nextTOK();auto res = cast->pushStmt(stmt::StructuredBinding());
+            for(nextTOK();!OneOfLex<lex::ty::rbrack>();nextTOK()){
+                if(OneOfLex<lex::lex::ty::pack>()){nextTOK();res->bn.emplace_back(lexitback().u.name,true);}
+                else {expectErr<lex::ty::Name>();res->bn.emplace_back(lexitback().u.name);
+            }
+            expectErr<lex::ty::eq>();nextTOK();
+            res->e=getExpr<lex::ty::semicolon>();
+        };
+        void 
         template <cntxt c> 
         void NameStmt(bool bTemp,param_list<temp::meta>& plist){ 
 
-            if(!OneOfLex<lex::ty::Name,lex::ty::dcolon>()) {
-                if constexpr (Func){cast->pushStmt(getExpr());return;};
-                else {err::e(*this , UnexpectedToken());}
-            }
             accMember_seq acclist ;
-                acclist = get_accMember_seq<false>();
+            if(OneOfKw<kw_Auto>()){
+                nextTOK();
+                dtype dt;
+                getDtype(dt);
+                if(OneOfLex<lex::ty::lbrack>()){
+                    if(bTemp){err::e(this,TemplateNotAllowed<stmt::StructuredBinding>());}
+                    if constexpr(c!=cntxt::func){err::e(*this,OutsideOf<cntxt::func,stmt::StructuredBinding>())}
+                    StructuredBinding();return;}
+                    else {acclist.Auto=true;}
+            }
+            else {acclist = get_accMember_seq<false>();}
+            getDtype(acclist);
                 if(OneOfKw<kw_Operator>()){Operator<c>(bTemp,plist,acclist);return;}
-
-                if(OneOfLex<lex::ty::colon>()){cast->pushStmt<stmt::Label>(stmt::Label(acclist.back().name));return;}
+                if(OneOfLex<lex::ty::colon>()){
+                    if(acclist.Auto){err::e(*this,LabelName(lexitback()));untilLex<lex::ty::semicolon,lex::ty::rbrace>();}
+                    cast->pushStmt<stmt::Label>(stmt::Label(acclist.back().name));return;}
                 if(OneOfLex<lex::ty::lparen>() ) 
                     nextTOK();if(OneOfLex<lex::ty::mul>()){isFuncPtr(acclist);return;}
                     else{acclist.args=getInitArgs<lex::ty::rparen>();expr e(acclist);
                         pushats(cast->pushStmt(stmt::Expr(ContinueExpr<lex::ty::semicolon>(e))->atlist));return;}
                 };
-                if constexpr (lang == language::cpp){refPtr(acclist);}
                     if(OneOfLex<lex::ty::eq>() or pri::OneOf<lex::ty ,lex::ty::dot,lex::ty::arrow >(acclist.back().acc)){
                         expr ex;ex.emplace(value(acclist));
                         cast->pushStmt<stmt::Expr>(ContinueExpr(ex));return;
@@ -1650,20 +1643,19 @@ return res;
                 }
         };
         
-        void include(std::filesystem::path pth){pos.push_back(posit());this->curFilePath.push_back(pth) ;this->f.push_back(std::ifstream(pth));};
+        void include(std::filesystem::path pth){this->f.push_back(std::ifstream(pth));this->curFilePath.push_back(pth);pos.emplace_back(posit(curFilePath.back())) ;};
         void includeRel(std::filesystem::path l){
             std::filesystem::path wd=cwd.back();
             std::filesystem::path pth = wd;pth/=l;
-            if(std::filesystem::exists(pth)){
-                parser pn;cast->include(pn.fromFile(pth,*this));}
-            else {err::e<err::t::fileNotFound>(*this,pth);}
+            if(std::filesystem::exists(pth)){include(pth);}
+            else {err::e(*this,fileNotFound(pth));}
         };
         void includeAbs(std::filesystem::path l){
             for(std::filesystem::path p : dirs.arr ){
                 std::filesystem::path pth = p;pth/=l;
-                if(std::filesystem::exists(ps)){parser pn;cast->include(pn.fromFile(pth,*this));return;}
+                if(std::filesystem::exists(pth)){include(pth);return;}
             };
-            err::e<err::t::fileNotFound>(*this,pth);
+            err::e(*this,fileNotFound(pth));
         };
         template<>void _getMacro<mStmtInclude>(){
             until<lex::ty::nl>();
@@ -1672,10 +1664,8 @@ return res;
                 ++(lexptrback());
                 std::filesystem::path p;
                 for(;lexptrback()->t!=lex::ty::gtangle;++(lexptrback())){
-                    if(OneOfLex<lex::ty::div,lex::ty::escape>(lexptrback()->t)){
-                        continue;
-                    }
-                    if(lexptrback()->t!=lex::ty::name){err::e<err::t::include_closing_angle_brackets>(*this);break;}
+                    if(OneOfLex<lex::ty::div,lex::ty::escape>(lexptrback()->t)){continue;}
+                    if(lexptrback()->t!=lex::ty::name){err::e(*this,UnexpectedToken());break;}
                     p/=std::filesystem::path(lexptrback()->u.name);
                 }
                 includeAbs(p);
@@ -1684,15 +1674,13 @@ return res;
                 ++lexptrback();
                 std::filesystem::path p;
                 for(;lexptrback()->t!=lex::ty::dq;lexptrback()){
-                    if(OneOfLex<lex::ty::div,lex::ty::escape>(lexptrback()->t)){
-                        continue;
-                    }
-                    if(lexptrback()->t!=lex::ty::name){err::e<err::t::include_closing_dq>(*this);break;}
+                    if(OneOfLex<lex::ty::div,lex::ty::escape>(lexptrback()->t)){continue;}
+                    if(lexptrback()->t!=lex::ty::name){err::e(*this,UnexpectedToken());break;}
                     p/=std::filesystem::path(lexptrback()->u.name);
                 }
                 includeRel(p);
             }
-            else {err<>();}            
+            else {err::e(*this,UnexpectedToken());}            
             erase();
         };
         template<>void _getMacro<mStmtIf>(){
@@ -1701,11 +1689,7 @@ return res;
             erase();
             untilKW<false,kw_Else,kw_elif,kw_elifdef,kw_elifndef,kw_endif>();
         };
-        template<>void _getMacro<mStmtDefine>(){
-            until<lex::ty::Name>();
-            macros.emplace(lexptrback()->u.name,strippedUntil<lex::ty::nl>());
-            erase();
-        };
+        template<>void _getMacro<mStmtDefine>(){until<lex::ty::Name>();macros.emplace(lexptrback()->u.name,strippedUntil<lex::ty::nl>());erase();};
         template<>void _getMacro<mStmtElif>(){getMacro<mStmtIf>();};
         template <bool b>
         bool cond(bool t){return b?t:!t;};
@@ -1731,6 +1715,12 @@ return res;
             }else {untilKW<false,kw_Else,kw_elif,kw_elifdef,kw_elifndef,kw_endif>();}
         };
         template<>void _getMacro<mStmtEndIf>(){erase();};
+        template<>void _getMacro<mStmtPragma>(){nextTOK();expectErr<lex::ty::Name>();
+            for(pragma it : pragmas){
+                if(it->name == lexitback().u.name){it.proc(*this);}
+            }
+        }
+
         template <typename T> getMacro(){_getMacro<T>();}
 
 
@@ -1832,7 +1822,7 @@ return res;
             } 
             expectErr<lex::ty::lbrace>();
             cast->curBl.push_back(&res->body);
-            for(nextTOK();!OneOfLex<lex::ty::rbrace>();nextTOK()){PushStmt<true,true>();};
+            for(nextTOK();!OneOfLex<lex::ty::rbrace>();nextTOK()){StmtPush<cntxt::func>();};
             cast->curBl.pop_back();nextTOK();
 
             if(bTemp){cast->curtemp.pop_back();}; 
@@ -1889,11 +1879,25 @@ return res;
                 for(nextTOK();!OneOfLex<lex::ty::rbrace>()){StmtPush<cntxt::ns>();}
                 nextTOK();res->resolve(cast);
             }
-        }
+        };
+
+
+        constraint get_constraint(){nextTOK();
+
+            constraint c = expr(lexitback().pos);
+        
+            for(;OneOfLex<lex::ty::semicolon>()){
+                if(OneOfLex<lex::ty::Name>() and e.back().e.o == op::ty::none){break;}
+                SwExpr(c);
+            };
+        };
         #define PUBLIC_ACCESS true
         #define PRIVATE_ACCESS false
         template <cntxt c>
-        bool StmtPush(){
+        [[likely]] bool StmtPush(){
+            
+            if(lexitback().t==lex::ty::ldi){_atlist = getAttributes(); nextTOK(); }
+            
             if(lexitback().t==lex::ty::lbrace){
                 if constexpr (Func){
                     cast->pushStmt<stmt::block>(stmt::block);
@@ -1902,9 +1906,8 @@ return res;
                 }
                 else throw UnexpectedToken(lexitback().t);
             };
-            
-            if(lexitback().t==lex::ty::ldi){_atlist = getAttributes(); nextTOK(); }
-            if(lexitback().t==lex::ty::semicolon){nextTOK();return;}
+
+            if(lexitback().t==lex::ty::semicolon){auto res=cast->pushStmt(stmt::NullStmt());pushats(res->atlist);return;}
             if(OneOfLex<lex::ty::dcolon>()){}
             else if(OneOfLex<lex::ty::bnot>()){
                 nextTOK();
@@ -1925,6 +1928,7 @@ return res;
                     if constexpr (Func){err::e(*this,UnexpectedToken("Template Not allowed in function body"));}
                     nextTOK();expectErr<lex::ty::ltangle>();
                     plist = get<temp::meta,param_list>();until<lex::ty::Name,lex::ty::gtangle,lex::ty::space,lex::ty::nl>();
+                    nextTOK(); if(OneOfKw<kw_requires>()){nextTOK();plist.constraint = get_constraint();nextTOK();}
                     cast->curtemp.push_back(&plist);
                 };
                 if(OneOfKw<kw_concept>()){Concept<c>(plist);}
@@ -1949,22 +1953,12 @@ return res;
         };
 
 
-        bool ShadowCheck(std::string& name){
-            for( param_list<temp::meta>& it : pri::reverse(curtemp)){
-                for(param<temp::meta>& ite  : it ){
-                    if(ite.name == name ){return true;}}
-            };
-            return false;
-        };
+
         
         template <cntxt c>
-        void Stmt(){
-            if(!kwFound<KW_LISTM>()){
-            StmtPush<c>();
-            }
-        }
+        void Stmt(){StmtPush<c>();}
         template <cntxt c>
-        void FStmt(){Stmt<Strct,true>();};
+        void FStmt(){Stmt<cntxt::func>();};
 
         ast fromFile(std::filesystem::path pth){ curFilePath.push_back(pth);
             cast=new ast();

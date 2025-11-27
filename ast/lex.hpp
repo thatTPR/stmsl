@@ -1,16 +1,18 @@
 #ifndef STMSL_LEX
 #define STMSL_LEX
-#include <queue>
+#include <filesystem>
 namespace stmsl {
     struct posit {
             size_t ln=0;
             size_t col=0;size_t filePos=0;size_t ecol=0;
+            std::filesystem::path* file;
             decltype(*this) operator++(){col++;}
             decltype(*this) operator++(int){filePos+=col;col=0;}
             bool operator<(size_t& i){return col<i;}
             bool operator<=(size_t& i){return col<=i;}
             operator size_t(){return col;};
             posit() = default;
+            posit(std::filesystem::path& _pth)  {*this = {0,0,0,0,&_pth} }
             posit(posit& p) {*this=p;ecol=col;}
         };
     struct lex {
@@ -54,6 +56,46 @@ namespace stmsl {
                 none
             };
 
+            std::string getStr(ty t){
+                switch(t){
+                    case ldi :{return std::string("[[")};
+                    case rdi :{return std::string("]]")};
+                    case modeq :{return std::string("%=")};
+                    case xoreq :{return std::string("^=")};
+                    case comm :{return std::string("//")};
+                    case blockcomm :{return std::string("/*")};
+                    case lteq :{return std::string("<=");}
+                    case strmlt :{return std::string("<<");}
+                    case strmlteq :{return std::string("<<=");}
+                    case arrow :{return std::string("->");}
+                    case gteq :{return std::string(">=");}
+                    case strmgt :{return std::string(">>");}
+                    case strmgteq : {return std::string(">>=");}
+                    case dcolon :{return std::string("::");}
+                    case dcolptr :{return std::string("::*");}
+                    case arrowptr :{return std::string("->*");}
+                    case dotptr :{return std::string(".*");}
+                    case three :{return std::string("<=>");}
+                    case ptrmember :{return std::string("::*");}
+                    case peq : {return std::string("+=");}
+                    case meq : {return std::string("-=");}
+                    case andeq : {return std::string("&=");}
+                    case oreq : {return std::string("|=");}
+                    case Noteq : {return std::string("!=");}
+                    case muleq : {return std::string("*=");}
+                    case diveq : {return std::string("/=");}
+                    case eqeq : {return std::string("==");}
+                    case pack : {return std::string("...");}
+                    case pp : {return std::string("++");}
+                    case mm : {return std::string("--");}
+                    case oand : {return std::string("&&");}
+                    case oor : {return std::string("||");}
+                    case str : {return std::string("#");}
+                    case tokpaste : {return std::string("##");}
+                    case none : {return std::string("");}
+                    default : {return std::string(t);}
+                }
+            };
             #define LEX_OPER comma,plus,minus,mod,modeq,band,bor,bxor,mul,lteq,strmlt,strmlteq,arrow,gteq,strmgt,strmgteq,peq,meq,andeq,oreq,Noteq,muleq,diveq,eqeq,pp,mm,oand,oor
             #define LEX_OP2 lparen,lbrack
             

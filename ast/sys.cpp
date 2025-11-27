@@ -44,14 +44,14 @@ namespace stmsl
         using type = ty;
     };
     template <typename KW>
-    struct KwWarning : public Error {
+    struct KwWarning : public Warning<Kw> {
         using KEYWORD=KW;
     };
 
     template <typename KW>
-    struct KwError : public Warning {using KEYWORD=KW;} 
-    template <typename T=ast<temp::meta>>
-    class UnexpectedToken  : public Error{};
+    struct KwError : public Error<Kw> {using KEYWORD=KW;} 
+    template <typename T=void>
+    class UnexpectedToken  : public Error<T>{};
 
     template <>
 
@@ -74,12 +74,7 @@ namespace stmsl
     struct ErrorToken : public WarningToken<t>;
     template <lex::ty t>
     struct ErrorNoToken : public ErrorToken<t>;
-
-
-
     struct DeclarationOutsideOfScope : Warning ;
-
-    
     struct Redefinition : Error ;
     struct Redeclaration : Error ;
     struct DeclarationOutsideScope : Error;
@@ -103,6 +98,7 @@ struct TemplateConversionFunction : Error;
     struct FuncNotFound : Error<accMember_list<temp::meta>>;
     struct OperatorNotFound : Error<accMember_list<temp::meta>>;
     struct LabelNotFound : Error;
+    struct LabelName : Error<lex>;
     struct OutSideDefinition : Error;
     struct ConversionError {
         private :
@@ -113,9 +109,9 @@ struct TemplateConversionFunction : Error;
     template <typename T=void>
     struct QualifierNotAllowed : ErrorT<T>;
     template <typename SpecT>
-    struct AlreadyDefdSpec : ValErr<SpecT>
+    struct AlreadyDefdSpec : Error<SpecT>
     template <typename SpecT>
-    struct AlreadyDeclared : ValErr<SpecT>
+    struct AlreadyDeclared : Error<SpecT>
     template <typename T>
     struct StmtNotAllowed : Error<T>;
 
@@ -126,9 +122,29 @@ struct TemplateConversionFunction : Error;
     struct ShadowWarn : Warn<T>;
 
 using EnumValueMustBeCexpr = Error<EnumT> ;
-    using fileNotFound = ValErr<std::string>;
+    using fileNotFound = Error<std::filesystem::path>;
 struct AttribNotFound : Warning<attrib>{}; 
 struct AttributeNotForStmt : Warning<stmt::stmtty>;
+
+template <typename T=void>
+struct TemplateNotAllowed : Error<T>;
+template <cntxt _c,typename T=void>
+struct OutsideOf : Error<T>{static constexpr cntxt c = _c;}; 
+
+struct ArgListPackNotAtEnd : Error<stmt::arg_list>;
+
+struct RecursiveConstInit : Error<stmt::block>{
+    pri::deque<stmt::VarDecl*> vds;
+
+    RecursiveConstInit(stmt::block& bl, pri::deque<stmt::VarDecl*> vdecls) : vdecl(vds) ; 
+} ;
+
+struct ExprParse: Error<expr>{};
+struct ExprError : Error<expr>{};
+struct ExprOper : Error<expr> {}{
+    expr& e ; expr::ExprTy::iter& i  ; 
+    ExprOper(expr& _e, expr::ExprTy::iter& _i ) : e(_e) , i(_i) {}
+};
 
     class ResolveError : public Error{
         struct ErrorVar {
@@ -156,6 +172,13 @@ struct AttributeNotForStmt : Warning<stmt::stmtty>;
         template <typename T>
         ResolveError(T&& i){var.push(ErrorVar(i));}
     };
+
+    template <typename T,typename A>
+    struct AccSpec : public Error {
+        accSpec ac,accSpec memac,T& mem,A& tp;
+        AccSpec(accSpec _ac,accSpec _memac,T& _mem,A& _tp  ) : ac(_ac) , memac(_memac) , mem(_me) , tp(_tp){}; 
+    };
+
 
 struct _dir_ {
     std::vector<std::filesystem::path> arr;
@@ -253,7 +276,7 @@ default : {return std::string(s.t);}
         if(tpb.type){}
     } ;
 
-    template <t ts>
+    template <typename T,template <typename > typename Exc >
     void _err(stmsl::parser& prs){};
     template <>void _err<fileNotFound>(stmsl::parser& prs){std::err<<"Template Not Allowed in template instantiation\n";};
     template <>void _err<fileNotFound>(stmsl::parser& prs){std::err<<"File Not Found\n";};
@@ -277,14 +300,17 @@ default : {return std::string(s.t);}
     
     
     
-    
-    template <t ts,typename... Ts >
-    void getErr(stmsl::parser& p,Ts... args){
+    template <bool erorr, typename T,template<typename >typename Exc>
+    void getExc(Exc<T>&& ex){
+
+    };
+    template <bool error ,typename T,template<typename >typename Exc >
+    void getErr(stmsl::parser& p,Exc<T>&& e){
         std::err<<p.curFilePath<<p.linen<<":"<<p.col<<": ";
-        if constexpr(warn<ts>::value){pri::ansi(FG_YELLOW)<<" warning: \"";}
+        if constexpr(!error){pri::ansi(FG_YELLOW)<<" warning: \"";}
         else {std::err<<pri::ansi(FG_RED)<<" error: \"";}
         std::err<<pri::ansi(FG_WHITE);
-        _err<ts>(p);
+        _err<T,Exc>(e);
         pri::deque<lex>::iter it=p.itPtr.back();
         pri::deque<lex>::iter prev = p.itPtr.prev();
         std::string line = goTo(p,*it);
@@ -315,10 +341,19 @@ default : {return std::string(s.t);}
         if(wfatal_error and errt<ts,Ts...>::value){exit(1);}
     };
 
+
+
     template <typename T,template <typename > typename Exc>
-    void e(stmsl::parser& prs,Exc<T> ex;)
-    template <typename... Ts>
-    void warn(stmsl::parser& prs,Ts... args){getWarn<Ts...>(prs,args...);}
+    void e(stmsl::parser& prs,Exc<T>&& ex){
+        if constexpr ( std::is_base_of<Warning<T>,Exc<T>>::value){getErr<false,T,Exc>(prs,ex);}
+        if constexpr (std::is_base_of<Error<T>,Exc<T>>::value){getErr<true,T,Exc>(prs,ex)}
+    };
+    template <typename T,template <typename > typename Exc>
+    void exc(Exc<T>&& ex){
+        if constexpr ( std::is_base_of<Warning<T>,Exc<T>>::value){getErr<false,T,Exc>(ex);}
+        if constexpr (std::is_base_of<Error<T>,Exc<T>>::value){getErr<true,T,Exc>(ex)}
+    };
+    
 };
 
 class syst {
@@ -388,8 +423,6 @@ std::filesystem::path rootFile;
 std::filesystem::path infile;
 
 
-
-
 _files files;
 std::string mfmt;
 bool supressWarnings=false;
@@ -425,13 +458,13 @@ opengl
     env tag;
     version<language::spv>::ver v;
     decltype(*this) operator=(std::string n){
-    if(n=="spv1.0"){v=version<language::spv>::spv10;}
-    if(n=="spv1.1"){v=version<language::spv>::spv11;}
-    if(n=="spv1.2"){v=version<language::spv>::spv12;}
-    if(n=="spv1.3"){v=version<language::spv>::spv13;}
-    if(n=="spv1.4"){v=version<language::spv>::spv14;}
-    if(n=="spv1.5"){v=version<language::spv>::spv15;}
-    if(n=="spv1.6"){v=version<language::spv>::spv16;}
+    if(n=="spv1.0"){v=target<language::stmsl>::ver::spv10;}
+    if(n=="spv1.1"){v=target<language::stmsl>::ver::spv11;}
+    if(n=="spv1.2"){v=target<language::stmsl>::ver::spv12;}
+    if(n=="spv1.3"){v=target<language::stmsl>::ver::spv13;}
+    if(n=="spv1.4"){v=target<language::stmsl>::ver::spv14;}
+    if(n=="spv1.5"){v=target<language::stmsl>::ver::spv15;}
+    if(n=="spv1.6"){v=target<language::stmsl>::ver::spv16;}
     return *this;
     } ;
     decltype(*this) operator()(
@@ -479,9 +512,12 @@ void emitBinary(ast<meta> a){
 
 };
 void emitBinaryNolink(ast<meta> a){emitBinary(a);}
+
+
+language l ;
 template <language lang , version<lang>::ver v>
 void emit(std::filesystem::path pth){
-    
+    l =lang;
     parser prsr;
     syserr.p = prsr;prsr.syserr=syserr;
     if(preprocOnly){

@@ -1,6 +1,7 @@
 #ifndef STMSL_AST
 #define STMSL_AST
 #include <initializer_list>
+#include <petri/templates.hpp>
 #include <petri/list.hpp>
 #include <petri/stack.hpp>
 #include <petri/variant.hpp>
@@ -15,12 +16,12 @@ namespace stmsl{
 enum struct temp {meta,inst};
 
 struct op {
-    enum ty {opType,
+    enum ty {opType,opdq=lex::ty::dq,
         opNoExcept,opdot=lex::ty::dot,oppack=lex::ty::pack,
         opcond=lex::ty::cond,opcolon=lex::ty::colon,
         opdotptr=lex::ty::dotptr,
         opNew,opDelete,opNewArr,opDeleteArr,opSizeof,opSizeofPock,
-        StaticCast,ReinterpretCast,DynamicCast,
+        StaticCast,ReinterpretCast,DynamicCast,ConstCast,
         opbnot=lex::ty::bnot,
         oparrow=lex::ty::arrow,
         opthree=lex::ty::three,
@@ -78,21 +79,44 @@ struct value ;
 template <temp q>
 struct type;
 template <temp q>
-std::string getName(type<q>& ty);
-using nstype = pri::deque<type<temp::inst>>;
+std::string getName(type& ty);
+using nstype = pri::deque<type>;
 template <temp q>
-using type_list<q> = pri::deque<type<q>> ;
+using type_list<q> = pri::deque<type> ;
 
+
+using constraint = expr;
 
 template <temp q>
 struct param ;
 template <temp q>
-struct param_list : public pri::deque<param<q>> ;
+struct param_list : public pri::deque<param<q>> {
+    std::enbale_if<q==temp::meta , constraint> Constraint;
+};
+
+    
+    struct ptrMember {
+        type* tp;stmt::VarDecl* mem;
+        void get(stmt::VarDecl* inst){
+            auto iti = inst->variables.begin();
+            auto itm = mem->getType().;
+            for(tp->variables)
+        };
+        stmt::VarDecl* member(stmt::VarDecl& vd) { 
+            for(type::accMem<stmt:VarDecl>& i  : vd.tp){      if(i->data == mem){return &i->data;}
+            };
+            throw MemberNotFound();
+        };
+        ptrMember(type* _t, stmt::VarDecl* _mem ) : tp(_t),mem(_mem) {} 
+    };
+
+struct dtype : Qualifiable<qual::QStatic,qConst,qVolatile,qExtern,qConstexpr> {type* t; size_t refNum=0; size_t ptrNum=0;expr arrSize={};dtype()=default;
+    dtype(type* _t) :t(_t){}
+};
 
 
-
-enum class result {rNs,rFunc,rOperator,rEnum,rEnumMem,rVar,rType,rUsing,rTypeDef,rParam,rLambda,rErr};
-using resty = pri::variant<param<temp::meta>*,stmt::NS*,stmt::FuncDecl*,stmt::OperatorDecl*,stmt::Enum*,stmt::Enum::member*,stmt::VarDecl*,stmt::DeclType*,stmt::Using*,stmt::rTypeDef*,value>;
+enum class result {rNs,rFunc,rOperator,rEnum,rEnumMem,rVar,rType,rUsing,rTypeDef,rParam,rLambda,rConcept,rSwizzle,rErr};
+using resty = pri::variant<param<temp::meta>*,stmt::NS*,stmt::FuncDecl*,stmt::OperatorDecl*,stmt::Enum*,stmt::Enum::member*,stmt::VarDecl*,stmt::DeclType*,stmt::Using*,stmt::rTypeDef*,stmt::Concept*,value>;
 struct accMember {
         bool Template;param_list<temp::inst> plist;lex::ty acc = lex::ty::none;op::ty oprt;
         std::string name;
@@ -102,13 +126,29 @@ struct accMember {
         stmt::init_args args;
         accMember(result _r){r=r;}
         accMember(std::string str){name=str;acc=lex::ty::dcolon;}
-        accMember(type<q>& _a){r=result::rType;pri::get<value>;}
+        accMember(type& _a){r=result::rType;pri::get<value>;}
         
         accMember(value& vl) { pri::get<value>(inst)=vl;r = result::rValue;}
     };
-struct accMember_seq : public pri::deque<accMember> ,Qualifiable<qConst,qVolatile,qin,qout,qflat> {size_t refNum=0;size_t ptrNum=0;size_t arrSize=0;bool globalAcc;bool resolved;posit pos;
+struct accMember_seq : public pri::deque<accMember> ,Qualifiable<qConst,qVolatile,qin,qout,qflat> {dtype dt;bool globalAcc;bool resolved;posit pos;bool Auto;
+    
+    
     accMember_seq& operator=(value& vl){accMember.emplace_back(vl);}
-            void resolve(ast& a){a.find(*this);}
+            void resolve(ast& a);
+            
+            bool isType(){};
+            bool isPtrMember(){};
+            bool isVariable(){};
+    std::ofstream& operator<<(std::ofstream& of){
+            if(globalAcc){of<<"&";}
+        for(auto& it : *this){
+            of<<it.name;if(it.Template){of<<plist;}
+            if(!it.args.empty()){of<<"("<<args<<")";}
+            of<<lex::getStr(acc);
+        };
+        return of;
+    };
+    
 };
 
     
@@ -117,26 +157,41 @@ struct param : Qualifiable<QUALS_EN>{
     enum ty {Typename,Type,PtrToMember};
     bool pack=false;
     ty t;//in param<inst> a value of Typename signfies the qualification of dependent type
-    bool Template=false;  
+    bool Template=false;  bool Concept =false ; stmt::Concept* cncp; 
     param_list<q> pl;
     std::enable_if<q==temp::meta, accMember_seq>::type tp ;
     std::enable_if<q==temp::meta, accMember_seq>::type  memberList;
-    std::enable_if<q==temp::meta, pri::deque<accMember*>>::type refs;
+    std::enable_if<q==temp::meta, param_list<temp::meta>>::type args; // Template args
+    std::enable_if<q==temp::metea,pri::deque<accMember_seq::iter>>::type refs ;
     std::enable_if<q==temp::inst,expr>::type vl;
     std::string name;
     std::string str(){
+        std::string str = Template ? "Template" :"";
         switch(t){
-            case ty::Typename : {return return std::string("Type");}
-            case ty::Type : {return std::string("Type") }
-            case ty::Template {return std::string("template")}
-            case ty::PtrToMember {return std::string("memberPtr")}
+            case ty::Typename : {return str+std::string("Type");}
+            case ty::Type : {return str+std::string("Type") }
+            case ty::PtrToMember {return str+std::string("memberPtr")}
+        }
+    };
+    template <ty _t>void __push(accMember* i);
+    template <>void __push<ty::Typename>(accMember_seq::iter& i,param<temp::inst>& p){i->r==result::rType;*(pri::get<stmt::DeclType*>(i->inst))=vl.Typename();};
+    template <>void __push<ty::Type>(accMember_seq::iter& i,param<temp::inst>& p){i->r==result::rType;pri::get<value>(i->inst)=vl.Value();};
+    template <>void __push<ty::PtrToMember>(accMember_seq::iter& i,param<temp::inst>& p){i->r==result::rType;pri::get<ptrMember>(i->inst)=vl.PtrMember();};
+    template <ty _t>
+    void _push(param<temp::inst>& p){for(accMember_seq::iter& it : refs){__push<_t>(it,p);}};
+    void push(param<temp::inst>& p){
+        if(p.t!=t){err::e(*this,ParamMismatch(p));}
+        switch(p.t){
+            case ty::Typename : {_push<ty::Typename>(p);}
+            case ty::Type : {_push<ty::Type>(p);}
+            case ty::PtrToMember {_push<ty::PtrToMember>(p);}
         }
     };
 static constexpr temp other_q = q==temp::meta?temp::inst:temp::meta;
-    bool operator==(param<other_q>& rhs){ if(t==ty::Type){ return (t==rhs.t)and (rhs.val<=pri::get<type<temp::inst>(rhs.arg)) and (pack==t.pack);}
+    bool operator==(param<other_q>& rhs){ if(t==ty::Type){ return (t==rhs.t)and (rhs.val<=pri::get<type(rhs.arg)) and (pack==t.pack);}
         return t==rhs.t and (pack==t.pack) };
     bool operator==(param<q>& rhs){
-        if(t==ty::Type){ return (t==rhs.t)and (pri::get<type<temp::inst>>(arg)==pri::get<type<temp::inst>(rhs.arg)) and (pack==t.pack);}
+        if(t==ty::Type){ return (t==rhs.t)and (pri::get<type>(arg)==pri::get<type(rhs.arg)) and (pack==t.pack);}
         return t==rhs.t and (pack==t.pack) };
     
     param<q>& operator=(param<temp::meta>& rhs);
@@ -155,15 +210,40 @@ static constexpr temp other_q = q==temp::meta?temp::inst:temp::meta;
         if constexpr(q==temp::inst){return *this==prm;}else {return prm==name;}
     };
 
-    param(type<q>& _Ty) {ptr=&_Ty;if(q==temp::meta){
+    
+    void getName(ast& a){
+        if constexpr(q== temp::meta){
+            tp.getName(a);if(t==ty::PtrToMember){memberList.getName(a);}
+        }
+        else {vl.getName();}
+    };
+    std::ofstream& operator<<(std::ofstream& of){
+         if(Template){of<<"template";}
+        if constexpr (q==temp::meta){
+           
+            of<<tp<<" "<<memberList<<name;
+        };
+    };
+
+    void resolve(ast& a){
+        if constexpr(q==temp::meta){
+            tp.resolve(a);
+            if(t==ty::Type){tp.resolve(a);if(tp.back().r==result::rConcept){;}}
+            if(t==ty::PtrToMember){tp.resolve(a);memberList.resolve(a);}
+            else if(t==ty::Template){args.resolve(a);}
+        }
+        else {vl.resolve(a);}
+    }
+    param(type& _Ty) {ptr=&_Ty;if(q==temp::meta){
         if(ty.Template){t=ty::Template;}
         else{t=ty::Type;}}
-        else{t=ty::Type;}}
-    param(std::string str,ty _t) :name(str) t(_t) ;
+    }
+
+    param(std::string str,ty _t) :name(str) t(_t) {};
     template <temp Q>
-    param(std::string str,type<Q>& tp) : name(str) { pri::get<type<Q>>(arg)=tp;};
+    param(std::string str,type& tp) : name(str) { pri::get<type>(arg)=tp;};
     template <temp Q>
-    param(type<Q>& tp) : name(str) { pri::get<type<Q>>(arg)=tp;name=getName<Q>(tp);};
+    param(type& tp) : name(str) { pri::get<type>(arg)=tp;name=getName<Q>(tp);};
 
     void update(param_list<temp::meta>& old , param_list<temp::meta>& cur);
 
@@ -242,10 +322,10 @@ public:
     const char* what() const noexcept override {return msg.c_str();}
 };
 template <temp q>
-type<q> getName(std::string name,param_list<q>& plist){
+type getName(std::string name,param_list<q>& plist){
     for(param<q> it : plist){if(it.name==name){
         if(it.t=param::type::Typename){
-            return pri:get<type<temp::inst>(it.arg);
+            return pri:get<type(it.arg);
         }
         else {
             throw TypeError(it.t,"TypeError"); 
@@ -267,8 +347,8 @@ struct integralT {
     template <typename T>
     using mUnSigned=unsigned T;
     value<temp::meta> mt;
-    bool is(type<temp::meta>& ref){};
-    // integralT(type<temp::meta>)
+    bool is(type& ref){};
+    // integralT(type)
 };
 
 
@@ -291,12 +371,12 @@ struct attrib_list : public pri::deque<attrib>{
 };
 struct lambda ;
 
-
+struct NoArgsExc;
 struct value {
     enum ty {anyvalue,
         prvalue=0b100 // operator expressions
         xvalue=0b01,member,ptrmember,swizzle,arr // member.access,swizzle,arr[]
-        lvalue=0b10,varRef,thisRef,funcCall,literal,initlist // variable name , function call,literal
+        lvalue=0b10,varRef,nsmember,thisRef,funcCall,literal,initlist // variable name , function call,literal
         rvalue, // prvalue or xvalue // If set to this that means we have paren;
         glvalue=0b11,// xvalue or lvalue
         typeValue,DeclT,lambdav,funcPtr
@@ -315,14 +395,25 @@ default: {return y;}
     };
     ty t=ty::anyvalue;
     
-    type<q>* tp;
+    type* tp;
+    dtype dt;
     int ref;
     bool isPtr(){return ref>0;} 
 
     using init_list = stmt::init_args;
     using variable =stmt::StmtVarDecl*;
     struct literal {
-        pri::variant<float,uint,int> lit;enum ty{FltLit,UintLit,IntLit};ty t;
+        pri::variant<float,uint,int,bool,std::string> lit;enum ty{FltLit,UintLit,IntLit,BoolLit,StrLit,CharLit};ty t;
+        template <typename T> // op::ty or type*
+        stmt::Operator* findOperator(T& o){
+            switch(t) {
+                case ty::FltLit : {return &get_FltOperator(o);}
+                case ty::UintLit : {return &get_UintOperator(o);}
+                case ty::IntLit : {return &get_IntOperator(o);}
+            }
+        };
+        literal(char num):t(ty::CharLit) {pri::get<char>(lit)=num;} 
+        literal(std::string num):t(ty::StrLit) {pri::get<std::string>(lit)=num;}         
         literal(float num):t(ty::FltLit) {pri::get<float>(lit)=num;} 
         literal(uint num):t(ty::UintLit) {pri::get<uint>(lit)=num;}
         literal(int num):t(ty::IntLit) {pri::get<int>(lit)=num;}
@@ -335,17 +426,95 @@ default: {return y;}
     #elif
     using ty = pri::variant<bool,int,uint,float,std::string>;
     #endif
-    using valty=pri::variant<accMember_seq,literal,lambda,init_list,expr,stmt::FuncDecl*>::type;
+    using valty=typename pri::variant<accMember_seq,literal,lambda,init_list,expr,stmt::FuncDef*>;
     valty val;
-
-    enum truTy {eaccList,eptrMember,efuncCall,eliteral,eExpr,elambda,einit_list,funcDecl};
+    enum truTy {eaccList,eptrMember,eliteral,eExpr,elambda,einit_list,func};
     tryTy tt;
+    
+        template <truTy tty>
+        void set(accMember_seq& s);
+    template <>void setFuncDef<truTy::func>(accMember_seq& s){
+        pri::get<stmt::FuncDef*>(val) = new pri::get<stmt::FuncDecl>(s.back().inst).get(s.back().plist);
+        pri::get<stmt::FuncDef*>(val) = new pri::get<stmt::FuncDecl>(s.back().inst).get(s.back().plist);
+
+    };
+
+
+    template <truTy tty>
+    void resolute();
+    template <> void resolute<truTy::eaccList>(){
+        auto it = pri::get<accMember_seq>(val).tail();
+        if(it->args.empty()){
+            --it;
+            switch(it->acc){
+                case lex::ty::dot : {t=ty::member;}
+                case lex::ty::dcolon : {t=ty::nsmember;}
+                case lex::ty::arrow : {t=ty::member;}
+                case lex::ty::
+            }
+        }
+        else {t=ty::funcCall;}
+
+    };
+    template<> void resolute<truTy::eliteral>(){t=ty::literal;}
+
+    template <truTy... tts>
+    struct trut {
+        template <truTy  T>
+        void applyFunc()
+        
+        void _sw(value& vl,)
+        void sw(){
+
+        }
+    };
+    template <typename truT , typename RT,typename... args>
+    void applyFunc(RT (*f)(args...),args... as){
+        switch(tt){
+            case truTy::eaccList : {pri::get<accMember_seq>(res)}
+        }
+    };
+
+    template <typename T>
+    stmt::Operator* findOperator(T& op){
+        try {
+            switch(tt){
+                case truTy::eaccList : {pri::get<accMember_seq>(val).findOperator(op);}
+                case truTy::eliteral : {pri::get<literal>(val).findOperator(op);}
+                case truTy::eExpr : {pri::get<expr>(val).ti->findOperator(op);}
+                case truTy::elambda : {pri::get<lambda>(val).findOperator(op);}
+                case truTy::einit_list : {throw OperatorNotFound();}
+                case truTy::func : {return pri::get<stmt::FuncDecl*>(val).Def; }
+            }
+
+
+        }
+    };
+    bool hadOperator(op::ty op, stmt::init_args& args );
+
+    void resolve(ast& a ){}
+    void resolve(ast& a){
+        switch(tt){
+            case truTy::eExpr : {pri::get<expr>(val).resolve(a);pri::get<expr>(val).valueResolve(*this);}
+            case truTy::einit_list : {pri::get<init_list>(val).resolve(a);}
+            case truTy::eliteral : {resolute<truTy::eliteral>();}
+            case truTy::eptrMember : {pri::get<accMember_seq>(val).resolve(a);break}
+            case truTy::efuncCall : { auto& i=pri::get<accMember_seq>(val).back() ;  pri::get<stmt::FuncDef>(val)= pri::get<Stmt::FuncDecl*>(i.inst).get(i.plist);}
+            case truTy::eaccList :{pri::get<accMember_seq>(val).resolve(a);resolute<eaccList>();break;}
+        }   
+    }
+    void addArgs(stmt::arg_list&& argl){
+        if(tt!=truTy::eaccList or (pri::get<accMember_seq>(val).back().args.empty())){
+            throw NoArgsExc();
+        }
+        else pri::get<accMember_seq>(val).back().args = argl;
+    };
     template <ty tp>void set(){t=tp;};
     param<temp::inst> get_prm(){param<temp::inst> res;}
     int ptrNum=0;int refNum=0;
     template <typename T>
     void setTruT();
-    template <> setTruT<stmt::FuncDecl>(){tt=truTy::funcDecl;}
+    template <> setTruT<stmt::FuncDecl>(){tt=truTy::func;}
     template <> setTruT<accMember_seq>(){tt=truTy::eaccList;}
     template <> setTruT<ptrMember<q>>(){tt=truTy::eptrMember;}
     template <> setTruT<funcCall>(){tt=truTy::efuncCall;}
@@ -354,74 +523,93 @@ default: {return y;}
     template <typename T>
     value(T&& v,ty p){pri::get<T>(val)=v;t=p;setTruT<T>();}
     value(T&& v,ty p,truTy pt){pri::get<T>(val)=v;t=p;tt=pt;}
-    value(type<q>& _tp){tp=&_tp;}
-    value(type<q>& _tp,ty _t){tp=&_tp;t=_t;}
+    value(type& _tp){tp=&_tp;}
+    value(type& _tp,ty _t){tp=&_tp;t=_t;}
     
     template <typename T>
-    value(T v){t=ty::literal;
-        if constexpr (std::is_same<T,float>::value){tp=&_Float;}
-        if constexpr (std::is_same<T,uint>::value){tp=&_UInt;}
-        if constexpr (std::is_same<T,bool>::value){tp=&_Bool;}
-        if constexpr (std::is_same<T,char>::value){tp=&Float;}
-        if constexpr (std::is_same<T,std::string>::value){tp=&Float;}
-    }
+    value(T v){t=ty::literal;tt=truTy::eliteral;
+        if constexpr (std::is_same<T,float>::value){tp=&_Float;pri::get<literal>(val)=literal(num);}
+        if constexpr (std::is_same<T,uint>::value){tp=&_UInt;pri::get<literal>(val)=literal(num);}
+        if constexpr (std::is_same<T,bool>::value){tp=&_Bool;pri::get<literal>(val)=literal(num);}
+        if constexpr (std::is_same<T,char>::value){tp=&_Char;pri::get<literal>(val)=literal(num);}
+        if constexpr (std::is_same<T,std::string>::value){tp=&_Str;pri::get<literal>(val)=literal(num);}
+    };
     value(expr<q>&& e) : {t=ty::rvalue;val=e;}  
 };
 
 
+FuncDef* findOperator(ast& a, op::ty& o , value& vl, value& vr);
+template <bool pre>
+FuncDef* findOperator(ast& a, op::ty& o , value& vl);
 struct expr {
     posit pos;
     attrib_list atlist;
+    
+    bool isConstExpr();
+    bool isConstExpr(value& vl);
     struct node {
-        ConstVal cval=ConstVal::unknown;
-                enum ConstVal {ConstExpr,Const,no,value,unknown};
-
-        op::ty o=op::ty::none;            
+        enum ConstVal {ConstExpr,Const,no,value,unknown}; ConstVal cval=ConstVal::unknown;
+        enum opty {binary,ternary,unary};
+        op::ty o=op::ty::none;            opty t;
         op::ty prefix=op::ty::none;op::ty postfix=op::ty::none;
-        value val;
-        int refNum=0;
-        bool cexpr(){if(cval==ConstVal::ConstExpr ){return true;}};
-        bool TrailOp(){pri::OneOf<opty::binary,opty::ternary>()}        
-        
+        value val;bool valset=false;
+        stmt::init_args args;bool index=false;
+
+        stmt::FuncDef* pref;
+        stmt::FuncDef* postf;
+        stmt::FuncDef* binaryf;
 
 
+        bool cexpr(){
+            for(cval::ConstVal::unknown){
+                switch (val.tt){
+                    case value::truTy::eaccList {
+                        accMember_seq& s= pri::get<accMember_seq>(val.val) ; 
+                        switch(s.r){
+                            case result::rVar : {auto res = pri::get<stmt::VarDecl* >(s.inst);  
+                                if(res->getQual<qConstExpr>()){
+                                    if(res->DefaultValue.isConstExpr())
+                                    cval==ConstVal::ConstExpr;}
+                                
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if(cval==ConstVal::ConstExpr ){return true;}
+        };
+        bool TrailOp(){return pri::OneOf<opty, opty::binary,opty::ternary>(t);}        
+        bool ternary(){return t==opty::ternary;}
+        bool par =false; 
+        void parens(){par=true;}
+        bool P(){return par;}
         node() = default;
         node(node& arg) {*this=arg;}
-        node(value<q>&& vt) : val(vt){o=op::ty::none}; 
-        node(expr<q>& e)  {val=value<q>(e);};
-        node(expr<q>&& e)  {val=value<q>(e);};
+        node(value&& vt) : val(vt){o=op::ty::none;valset=true;}; 
+        node(expr& e)  {val=value(e);valset=true;};
+        node(expr&& e)  {val=value(std::forward<expr>(e));valset=true;};
     
     };
     template <op::ty tyOp,node::opty Op>
-    node::opty getOpTy(){
-        switch constexpr (Op){
-            case node::opty::prefixUnary :{
-                switch constexpr (tyOp){
-                    case op::ty::opp :{return true;}
-                    case op::ty::omm :{return true;}
-                    case op::ty::opNot :{return true;}
-                };
-                return false;
-            };
-            case node::opty::postfixUnary :{
-                                switch constexpr (tyOp){
-                    case op::ty::opp :{return true;}
-                    case op::ty::omm :{return true;}
-                };
-                return false;
-            };
-            case node::opty::binary :{
-                switch constexpr (tyOp){
-                    case op::ty::opp :{return false;}
-                    case op::ty::omm :{return false;}
-                    case op::ty::opNot :{return false;}
-                };
-                return true;
-            };
-        }
-    };
+    
+    type* ti ;
     using ExprTy = pri::deque<node>;
     ExprTy e;
+
+
+    
+        template <bool _preb,bool _postb> struct btype {static constexpr ternary=false;static constexpr bool pre = _preb;static constexpr bool post = _postb;static constexpr bool binary=false;} 
+        struct ternary { static constexpr ternary=true;static constexpr bool pre = false;static constexpr bool post=false;  static constexpr bool binary=false;}
+        template <op::ty o > struct fix  {static constexpr ternary=false;static constexpr bool pre = false;static constexpr bool post=false;  static constexpr bool binary=true;}
+
+        template <> struct fix<op::ty::Not> : btype{};
+        template <> struct fix<op::ty::opbnot> : btype{};
+        template <> struct fix<op::ty::opp> : btype{};
+        template <> struct fix<op::ty::omm> : btype{};
+        template <> struct fix<op::ty::oppack> : btype{};
+        template <> struct fix<op::ty::opcond> :ternary {};
+
     bool isConstExpr();
     bool isConstExpr(value& vl){
         switch (vl.tt){
@@ -445,32 +633,65 @@ struct expr {
             case value::truTy::eptrMember:{return true;} 
             case value::truTy::eliteral: {return true;}
             case value::truTy::eExpr : { return pri::get<expr>(vl.val).isConstExpr();}
-            case value::truTy::elambda: {return true;}
+            case value::truTy::elambda: {return true;}            if(it.prefix!=op::ty::none){v.t==value::ty::prvalue;}
+
             case value::truTy::einit_list:{
                 for(expr ite : pri::get<value::init_list>(vl.val) ){
-                    if(ite.isConstExpr()==false){return false}
+                    if(ite.isConstExpr()==false){return false;}
                 }
-                return true;
-                ;} 
-            case value::truTy::funcDecl: {return true;}
+                return true;} 
+            case value::truTy::func: {return true;}
         } ;
         
-    }
+    };
+    void valueResolve(value& v){
+        for(auto& it : e){
+            if(it.prefix!=op::ty::none){v.t==value::ty::prvalue;return;}
+            if(it.postfix!=op::ty::none){v.t==value::ty::prvalue;return;}
+            if(it.o!=op::ty::none){v.t==value::ty::prvalue;return;}
+        };
+    };  
     void isConstExpr(){
         for(node it : e){if(!e.val.isConstExpr()){return false;}}
         return true;
     };
-    void addFuncCall(stmt::arg_list&& argl){e.back().val.addArgs(argl)}
+    template <bool funcCall>
+    void addArgs(stmt::init_args&& argl){
+        try {e.back().val.addArgs(std::forward<stmt::init_args>(argl))}
+        catch (const NoArgsExc& e){e.back().args=argl;}
+        e.back().index=!funcCall;
+    };
     value& val(){return val;}
         template <op::ty OpT,node::opty cur=node::opty::binary>
         void add(){e.back().opTy=cur;e.back().o=OpT;};
         template <op::ty OpT> add<OpT,node::opty::prefixUnary>(){e.back().prefix=opT;e.back().Prefix=true;}
         template <op::ty OpT> add<OpT,node::opty::prefixUnary>(){e.back().postfix=opT;e.back().Postfix=true;}
 
-        template <op::ty OpT,node::opty  OpTy>
-        void push(){e.push_back(node());add<OpT,OpTy>();};
 
+        template <op::ty OpT>
+        void push(){   
+            if constexpr (fix<OpT>::binary ){
+                if(e.back().o==op::ty::none){add<OpT,node::opty::binary>();}
+                else{e.push_back(node());add<OpT,node::opty::binary>();}
+            }
+            else if constexpr (fix<OpT>::ternary ){
+                if(e.back().o==op::ty::none){add<OpT,node::opty::ternary>();}
+                else{e.push_back(node());add<OpT,node::opty::ternary>();}
+            }
+            else if constexpr (fix<OpT>::pre ){
+                if constexpr (!fix<OpT>::post){if(e.back().prefix==op::ty::none and (e.back().valset)){e.back().prefix=OpT;return;}; }
+            };
+            if constexpr (fix<OpT>::post){
+                if constexpr (!fix<OpT>::pre){if(e.back().postfix==op::ty::none)}{e.back().postfix=OpT;}
+            }
+            else {err::e(ThrowExpressionParse(*this));}
+        };
 
+    template <op::ty Opt=op::ty::ocall>
+    void pushExpr(expr&& e){
+        e.emplace_back(e);
+        if constexpr (OpT==op::ty::ocall){e.back().parens();}
+    };
     void emplace(value<q>&& args){
         if(e.back().o==none){e.back().val=args;}
         else e.emplace_back(args);
@@ -480,13 +701,14 @@ struct expr {
         else e.emplace_back(args);
     };
     void addFuncCall(){};
-    template <typename >
+    template <typename T>
     void pushLiteral(T val){
-        if(e.back().o!=op::ty::none){
-            e.back().val=value<q>(val);
-        }else e.emplace_back(value<q>(val));}
+        if(e.back().o!=op::ty::none and !e.back().valset){
+            e.back().val=value(val);
+        }else e.emplace_back(value(val));
+    }
     type getType(){return tree.val.getType()};
-    operator type<q>(){return getType();}
+    operator type(){return getType();}
     expr Not(){
         expr<q> res;
         res.tree.opT=node::opty::prefixUnary;
@@ -495,26 +717,39 @@ struct expr {
         return res;
     };
 
-
-    void validateConstExpr(){
-        pri::deque<node>::iter it;bool isCexpr;
-        for(it=e.begin() ;it!=e.end();++it ){
-            if(it->cexpr()){
-                
-            }
-          
-        };
-    };
     operator bool(){
-        if(tree.vt==valuet::literal and (tree.ty.t==type::ty::Bool) ){return bliteral; }
+        if(e.vt==value::truTy::eliteral and (pri::get<value::literal>(e.val.val).t==value::literal::ty::BoolLit) ){return pri::get<bool>((pri::get<value::literal>(e.val.val).lit)); }
+        else throw ExprTypeError();
     }
-    bool isConstExpr(){return tree.getConstVal();}
+    bool cexpr(){return e.cexpr();}
+    bool ceval(){return e.ceval();}
+
+
     
     void resolve(ast& a){
-        for(node& n : e){
-            // TODO check conversions and declarations
+        auto it = e.begin();
+        auto lit = it;lit.resolve(a);
 
+        
+        if(lit.prefix!=op::ty::none){stmt::FuncDef& ores= findOperator<true>(a,let->o,lit->val);}
+        if(lit.postfix!=op::ty::none){stmt::FuncDef& ores= findOperator<false>(a,let->o,lit->val);}
+        for( ++it; it!=e.end();++it){
+            if(lit->o==op::ty::none){
+                if(lis->val.t==value::ty::literal){
+                    if(it->val.tt = value::truTy::eaccList){
+                        accMember_seq& res = pri::get<accMember_seq>(it->val.val) ; 
+                        if(res.front().name[0]=='_'){
+                            try {lit->postF=findOperatorLit(a,res.front().name);}
+                            catch (const OperatorNotFound& e){}
+                        }
 
+                    }
+                }
+                else throw ExprOper(*this,lit);}
+
+                it->resolve(a);lit->binaryF= findOperator(a,let->o,lit->val,it->val);
+            
+            lit=it;
         };
     };
     
@@ -548,39 +783,23 @@ struct lambda {
     bool Noexcept=false;
     param_list<q> plist;
     using argList = stmt::arg_list;
-    using tyty= std::conditional<temp::meta==q,value<q>,type<q>>::type
+    using tyty= std::conditional<temp::meta==q,value<q>,type>::type
     tyty rettp;bool trailing=false;
     attrib_list attribs;
     stmt::block body;
-    // decltype(*this) operator=(type<q>& rhs){
-
-    // };
-    // decltype(*this) operator=(stmt::VarDecl& rhs){
-    
-    // };
-    // decltype(*this) operator=(stmt::FuncDef& rhs){
-    
-    // };
-
 
 };
-
-
-
-template <temp q>
+enum accSpec{Public=3,Private=2,Protected=1};
 struct type {
     static constexpr temp tempState = q;
     bool Template ;
     enum ty {//constructor=0,expr=1,
-        vec=0,funcPtr,
-        func=2,Buffer=3,strct=4,arr=5,
-
+        vec=0,mat=1,Buffer=3,strct=4,arr=5,
         Image2D=6,Image3D=7,Sampler=8,
         // Param,Ns,Alias,enum,
         // // Vec=24,Mat=25,Ivec=26,Imat=27,Uvec=28,Umat=29,Bvec=30,Bmat=31
-    }
+    };
     enum prim {Void=9,Float=10,Int=11,Uint=12,Bool=13,pod,ctype}
-
     template <prim PrimT>struct primType {using type =void;}
     template <>struct primType<prim::Float> {using type =float;};
     template <>struct primType<prim::Int> {using type =int;};
@@ -591,12 +810,12 @@ struct type {
     std::string name ; 
     param_list<q> prms;
     std::enable_if<q==temp::meta,bool>::type tempTy;
-    std::enable_if<q==temp::meta,pri::deque<type<temp::inst>>::type insts;
+    std::enable_if<q==temp::meta,pri::deque<type>::type insts;
     ty t;
     // prim pt;
     // accSpec acc=accSpec::public;
     struct spec {
-        type<q> q;
+        type q;
         param_list<temp::meta> plist;
         param_list<temp::inst> specl;
         bool operator==(param_list<temp::inst>& pl);
@@ -618,7 +837,7 @@ struct type {
     bool compound;
     struct inher  {
         accSpec acc;
-        using tyty  = typename std::conditional<temp::meta==q,value<q>::accMember_seq,type<q>*>::type;
+        using tyty  = typename std::conditional<temp::meta==q,value<q>::accMember_seq,type*>::type;
         tyty t;
         inher(accSpec spc) : acc(spc);
         inher(tyty r) : t(r){} 
@@ -647,9 +866,6 @@ struct type {
 
         pri::list<accMem<stmt::DeclType>*> anons;
 
-        // #ifdef CXX_C
-        acc_list<stmt::Union> unions;
-        // #endif CXX_C
         acc_list<stmt::Enum> Enums; 
         
         acc_list<stmt::VarDecl> variables;
@@ -681,21 +897,21 @@ struct type {
             else return true;
         };
 
-    template <typename T ,pri::acc_list<T> type<q>::* ptr >
+    template <typename T ,pri::acc_list<T> type::* ptr >
     accMem<T>& find(std::string name ){
         for(T& it : this->*ptr ){if(it->data.name ==name){return &it;}}
         throw NameNotFound<T>;
     };
     
      void find(std::string name,result* r,resty* res){
-            try { pri::get<VarDecl*>(*res)=find<VarDecl,&type<q>::variables>(name);*r=result::rVar;return;} catch (const NameNotFound<VarDecl>& e){}
-            try { pri::get<FuncDecl*>(*res)=find<FuncDecl,&type<q>::methods>(name);*r=result::rFunc;return;} catch (const NameNotFound<FuncDecl>& e){}
-            try { pri::get<TypeDecl*>(*res)=find<TypeDecl,&type<q>::types>(name);*r=result::rType;return;}         catch (const NameNotFound<TypeDecl>& e){}
-            try { pri::get<Enum*>(*res)=find<Enum,&type<q>::Enums>(name);*r=result::rEnum;return;}           catch (const NameNotFound<Enum>& e){}
-            try { pri::get<Using*>(*res)=find<Using,&type<q>::usings>(name);*r=result::rUsing;return;}        catch (const NameNotFound<Using>& e){}
+            try { pri::get<VarDecl*>(*res)=find<VarDecl,&type::variables>(name);*r=result::rVar;return;} catch (const NameNotFound<VarDecl>& e){}
+            try { pri::get<FuncDecl*>(*res)=find<FuncDecl,&type::methods>(name);*r=result::rFunc;return;} catch (const NameNotFound<FuncDecl>& e){}
+            try { pri::get<TypeDecl*>(*res)=find<TypeDecl,&type::types>(name);*r=result::rType;return;}         catch (const NameNotFound<TypeDecl>& e){}
+            try { pri::get<Enum*>(*res)=find<Enum,&type::Enums>(name);*r=result::rEnum;return;}           catch (const NameNotFound<Enum>& e){}
+            try { pri::get<Using*>(*res)=find<Using,&type::usings>(name);*r=result::rUsing;return;}        catch (const NameNotFound<Using>& e){}
             try { pri::get<TypeDef*>(*res)=find<Union,&NS::tdefs>(name);*r=result::rTypeDef;return;}            catch (const NameNotFound<TypeDef>& e){}
             #ifdef CXX_C
-            try { pri::get<Union*>(*res)=find<Union,&type<q>::unions>(name);*r=result::rUnion;return;}        catch (const NameNotFound<Union>& e){}
+            try { pri::get<Union*>(*res)=find<Union,&type::unions>(name);*r=result::rUnion;return;}        catch (const NameNotFound<Union>& e){}
             #endif
                         throw NameNotFound();
     }
@@ -703,15 +919,14 @@ struct type {
 
     template <typename T>
     struct ptrmem ;
-    template <>struct ptrmem<stmt::DeclType> {static constexpr pri::acc_list<stmt::DeclType> type<q>::* ptr=&type<q>::types ;}
-    template <>struct ptrmem<stmt::VarDecl> {static constexpr pri::acc_list<stmt::VarDecl> type<q>::* ptr=&type<q>::vars ;}
-    template <>struct ptrmem<stmt::Using> {static constexpr pri::acc_list<stmt::Using> type<q>::* ptr=&type<q>::variables ;}
-    template <>struct ptrmem<stmt::FuncDecl> {static constexpr pri::acc_list<stmt::FuncDecl> type<q>::* ptr=&type<q>::methods ;}
-    template <>struct ptrmem<stmt::Enum> {static constexpr pri::acc_list<stmt::Enum> type<q>::* ptr=&type<q>::Enums ;}
-    template <>struct ptrmem<stmt::TypeDef> {static constexpr pri::acc_list<stmt::TypeDef> type<q>::* ptr=&type<q>::tdefs ;}
-    template <>struct ptrmem<stmt::Union> {static constexpr pri::acc_list<stmt::Union> type<q>::* ptr=&type<q>::unions ;}
-    template <>struct ptrmem<stmt::OperatorDecl> {static constexpr pri::acc_list<stmt::OperatorDecl> type<q>::* ptr=&type<q>::operators ;}
-    template <>struct ptrmem<stmt::Concept> {static constexpr pri::acc_list<stmt::Concept> type<q>::* ptr=&type<q>::concepts ;}
+    template <>struct ptrmem<stmt::DeclType> {static constexpr pri::acc_list<stmt::DeclType> type::* ptr=&type::types ;}
+    template <>struct ptrmem<stmt::VarDecl> {static constexpr pri::acc_list<stmt::VarDecl> type::* ptr=&type::vars ;}
+    template <>struct ptrmem<stmt::Using> {static constexpr pri::acc_list<stmt::Using> type::* ptr=&type::variables ;}
+    template <>struct ptrmem<stmt::FuncDecl> {static constexpr pri::acc_list<stmt::FuncDecl> type::* ptr=&type::methods ;}
+    template <>struct ptrmem<stmt::Enum> {static constexpr pri::acc_list<stmt::Enum> type::* ptr=&type::Enums ;}
+    template <>struct ptrmem<stmt::TypeDef> {static constexpr pri::acc_list<stmt::TypeDef> type::* ptr=&type::tdefs ;}
+    template <>struct ptrmem<stmt::OperatorDecl> {static constexpr pri::acc_list<stmt::OperatorDecl> type::* ptr=&type::operators ;}
+    template <>struct ptrmem<stmt::Concept> {static constexpr pri::acc_list<stmt::Concept> type::* ptr=&type::concepts ;}
     
     
     template <typename T>
@@ -731,41 +946,96 @@ struct type {
         try{pri::get<stmt::FuncDecl*>(*res) = findWhat<stmt::FuncDecl>(name);return;}catch(const NameNotFound& e){}; 
         try{pri::get<stmt::Enum*>(*res) = findWhat<stmt::Enum>(name);return;}catch(const NameNotFound& e){}; 
         try{pri::get<stmt::TypeDef*>(*res) = findWhat<stmt::TypeDef>(name);return;}catch(const NameNotFound& e){}; 
-        try{pri::get<stmt::Union*>(*res) = findWhat<stmt::Union>(name);return;}catch(const NameNotFound& e){}; 
         throw NameNotFound()
     };
-    Operator* findOperator(op::ty o){
+
+    template <typename T,acc_list<T> type::* ptr, accSpec at,typename... Ts>
+    T* find(std::functional<bool(accMem<T>& it,Ts...)>&& func,Ts... args){
+        for(accMem<T>& it : this->*ptr){
+            if(func(args...)){
+                if(at<it.acc){throw AccSpec(at,it.acc,*this,it.data);}
+                return &it.data;
+            }
+        };
+        throw OperatorNotFound();
+
+    };
+
+    template <accSpec at = accSpec::Public>
+    stmt::Operator* findOperator(op::ty o,std::string& name){
+        find<stmt::Operator*,&type::operators,at>([&](accMem<stmt::Operator> it,op::ty& o , std::string& name) -> bool {
+            if(it.data.name==name and (it.data.o==o)){return true};return false},o,name;
+        );
+        throw OperatorNotFound();
+    };
+    template <accSpec at = accSpec::Public>
+    stmt::Operator* findOperator(op::ty o){
         for(accMem<Operator>& it : operators){
+                                        if(at<it.acc){throw AccSpec(at,it.acc,&it);}
+
             if(it.data.opt == o){return &it;}
         };
         throw OperatorNotFound();
     };
-    Operator* findOperatorLit(std::string name){
+    template <accSpec at = accSpec::Public>
+    stmt::Operator* findOperatorLit(std::string name){
         for(accMem<Operator>& it : operators){
-            if(it.data.opt == lex::ty::dq and (it.data.name=name);){return &it;}
+            if(it.data.opt == op::ty::opdq and (it.data.name=name);){return &it;}
         };
         throw OperatorNotFound();
     };
-
-    FuncDecl* findOperator(type<temp::inst>* q){
-
+    template <accSpec at = accSpec::Public>
+    FuncDef* findOperator(type* q){
+        stmt::Operator* op = findOperator(op::ty::opType);
+        for(stmt::Operator::specN& it : op->specs){
+            if(it.t.args.front().tpi){return &(it.t);}
+        }
+        throw OperatorNotFound();
     };
+       template <bool pre,accSpec at=accSpec::Public>
+        FuncDef* findOperator(op::ty& o,type& tp){
+            Operator* r = findOperator(o);
+            for(Operator::SpecN& it : r->specs){
+                if constexpr (pre){if(it.t.args.empty()){return it.t ;}}
+                else if(!it.t.args.empty()){return it.t ;}
+            }
+            throw OperatorNotFound(o);
+        };
+            template <accSpec at = accSpec::Public>
+        FuncDef* findOperator(op::ty& o,init_args& args){
+
+        };
+
+        template <accSpec at = accSpec::Public>
+        FuncDef* findOperator(op::ty& o,type& tl,type& tr){
+            Operator* r = findOperator(o);
+            for(Operator::SpecN& it : r->specs){
+                if(it.t.args.size()==2){
+                    auto& i  =it.t.args.begin();
+                    if(*(i.tpi) != tl ){break;}
+                    ++i;
+                    if(*(i.tpi) != tr ){break;}
+                    return it.t;
+                }
+            }
+            throw OperatorNotFound(o);
+        };
+
+
     FuncDecl* findFunc(std::string name ){accMem<T>& r =  findWhat<FuncDecl>(name);return &r.data;}
 
 
     template <temp Q>
-    stmt::OperatorDecl* findOperator(op::ty op,arg_list args,param_list<Q>& prms,type<q>* tyt);
+    stmt::OperatorDecl* findOperator(op::ty op,arg_list args,param_list<Q>& prms,type* tyt);
     template <>
-    stmt::OperatorDecl* findOperator<temp::inst>(op::ty op,arg_list args,param_list<Q>& prms,type<q>* tyt){
+    stmt::OperatorDecl* findOperator<temp::inst>(op::ty op,arg_list args,param_list<Q>& prms,type* tyt){
         for(stmt::OperatorDecl it : operators){if(it->typeConv and (tyt== it.opv)){return &it;} };
     };
-    
-    find
 
     template <temp Q>
     ConstructorDecl* findConstructors(op::ty op,arg_list args,param_list<Q>& prms) ;
         template <>
-    ConstructorDecl* findConstructors<temp::ins>(op::ty op,arg_list args,param_list<Q>& prms) ;{
+    ConstructorDecl* findConstructors<temp::ins>(op::ty op,arg_list args,param_list<Q>& prms) {
 
     };
 
@@ -791,13 +1061,13 @@ struct type {
     
     size_t alignment=1;size_t size;
     void calcAlignment(){alignment=1;
-        for(type<q> it : ts  ){it.calcAlignment();if(it.alignment>alignment){alignment=it.alignment;}}};
+        for(type it : ts  ){it.calcAlignment();if(it.alignment>alignment){alignment=it.alignment;}}};
     void calcSize(){size=0;
-        for(type<q> it : ts  ){it.calcAlignment();size+=it.size;}};};
+        for(type it : ts  ){it.calcAlignment();size+=it.size;}};};
 
 
     template <temp Qr,temp Qs>
-    type<Qr> get(parameter_list<Qs>& plist){
+    type get(parameter_list<Qs>& plist){
         for(spec& it : this->specs){
             if(it==plist){return it;}
         };
@@ -807,7 +1077,7 @@ struct type {
     };
 
     template <bool Name>
-    bool approxEq(type<q>& s){
+    bool approxEq(type& s){
         if(t != s.t){return false;}
         if(t>=24){if(dims!=s.dims){return false;}}
         if constexpr(Name){
@@ -815,31 +1085,31 @@ struct type {
         };
         return true;
     };
-    bool tyEq(type<q>& s){
+    bool tyEq(type& s){
             if(ts.size()!= s.ts.size()){return false;}
-        pri::list<type<q>>::iter tit = ts.begin();
-        pri::list<type<q>>::iter sit = s.ts.begin();
+        pri::list<type>::iter tit = ts.begin();
+        pri::list<type>::iter sit = s.ts.begin();
         while(tit!=ts.end() and sit != s.ts.end() ){
             if(*tit != *sit){return false;}
             ++tit;++sit;
         };
         return true;
     };    
-    bool operator<=(type<q>& s){return approxEq<true>(s)}
-    bool operator<(type<q>& s){
+    bool operator<=(type& s){return approxEq<true>(s)}
+    bool operator<(type& s){
         if(!approxEq<true>(s)){return false;}
         return ts.size()<s.ts.size();
     };
-    bool operator>=(type<q>& s){return approxEq<false>(s)}
-    bool operator>(type<q>& s){
+    bool operator>=(type& s){return approxEq<false>(s)}
+    bool operator>(type& s){
         if(!approxEq<false>(s)){return false;}
         return ts.size()<s.ts.size();
     };
-    bool operator==(type<q>& s){
+    bool operator==(type& s){
         if(!approxEq<true>(s)){return false;}
         return tyEq(s);
     };
-    bool operator!=(type<q>& s){
+    bool operator!=(type& s){
         if(!approxEq<false>(s)){return false;}
         return tyEq(s);        
     };
@@ -862,11 +1132,11 @@ struct type {
         return true;
     };
     template <temp Qt,temp Qp>
-    type<Qt> get(param_list<Qp>& plist){
+    type get(param_list<Qp>& plist){
         
         if(Qp==temp::meta){
             if(Qp==temp::meta)
-            type<Qt> h ;h.prms=plist;
+            type h ;h.prms=plist;
         }
         else {
             if(!this->valid_param(plist)){throw std::logic_error("Param List Invalid");}
@@ -886,22 +1156,35 @@ struct type {
 
     };
     
+    constexpr type(std::string str,stmt::DeclType* dt, param_list<temp::inst>& plist ){
+        *this = dt->get(plist);this->name = str;
+    };
     type(std::string str, prim _tp) : name(str) , pt(_tp)  {}
     type(std::string str, ty _tp) : name(str) , t(tp)  {}
 
 
-    type(type<q> __ty,pri::deque<size_t> _dims){*this=__ty;dims=_dims;}
+    type(type __ty,pri::deque<size_t> _dims){*this=__ty;dims=_dims;}
 
     type(std::string _name,prim _ty,param_list<q> _prms) :t(_t) {prms=_prms;tempTy=true;pt=_ty;};
     type(std::string _name,ty _ty,param_list<q> _prms) :t(_t) {prms=_prms;tempTy=true;t=_ty;};  
 
     template <temp Qt,temp Qp>
-    type(std::string _name,type<Qt> _t,param_list<Qp> _prms) :t(_t) {*this=_t.get(_prms);name=_name;};
+    type(std::string _name,type _t,param_list<Qp> _prms) :t(_t) {*this=_t.get(_prms);name=_name;};
 
 
 size_t dim;pri::deque<size_t> dims;
 
-    bool hasSwizzle(){if(t==ty::vec or(t==ty::mat)){return true;}else return false;}
+    struct swizzleVec {
+        size_t s ; size_t* inds;
+        swizzleVec(size_t _s, size_t* _inds){s=s;inds=_inds}
+    };
+    // operator. for swizlle proto : operator.(std::string n){}
+    swizzleVec swizzle(size_t s , size_t* inds){
+
+    };
+    swizzle
+    bool hasSwizzle(){}
+    // bool hasSwizzle(){if(t==ty::vec or(t==ty::mat)){return true;}else return false;}
     bool isCompound(){return compound;}
     
     struct swizzle {
@@ -933,7 +1216,7 @@ case 'q' :{return 3;};
         return swiz_err;
     };
   
-    std::vector<size_t> swizz(std::string sw){
+     swizz(std::string sw){
         if(sw.size()>dim){throw SwizzleError("Swizzle ")};
         std::vector<size_t> res;
         for(char c : sw){res.push_back(swizz(c));}
@@ -941,11 +1224,11 @@ case 'q' :{return 3;};
     };
     size_t size;
     std::vector<size_t > swi;
-    bool operator==(type<inst>& f){
+    bool operator==(type& f){
         if(s.size()<=f.dim)
     };
      
-    swizzleTy(std::string s,type<inst>& i){
+    swizzleTy(std::string s,type& i){
         for(char c : s){
             size_t h = siwzz(c);
             if(h!=swiz_err){
@@ -955,8 +1238,6 @@ case 'q' :{return 3;};
             else{err::e<err::t::swizzle_notexist>()}
         };
     };
-
-};
     template <size_t s, size_t... Ss>
     void pushSize(size_t s,size_t... Ss){
         dims.push_back(s);
@@ -965,7 +1246,7 @@ case 'q' :{return 3;};
 
     type(std::string str,size_t size) : t(ty::vec) name(str)  {dim=size;}
     template <size_t... Ss> 
-    type(std::string str,type<temp::meta>& arrtemp,type<temp::inst>* ty,size_t ss,size_t... Ss) :t(ty::vec) dim(arrtemp=dim)  {*this=*ty;pushSize(ss,Ss...);}
+    type(std::string str,type& arrtemp,type* ty,size_t ss,size_t... Ss) :t(ty::vec) dim(arrtemp=dim)  {*this=*ty;pushSize(ss,Ss...);}
     type(std::string str,size_t ss) : dim(ss) t(ty::vec) {name=str;dim=ss;}
 };
 
@@ -978,12 +1259,10 @@ struct tyty {
 };
 
 template <temp Q>
-std::string getName(type<Q>& tp){return tp.name;}
+std::string getName(type& tp){return tp.name;}
 
 
-stmt::tyty getTy(stmt::tyty& r){
-
-};
+stmt::tyty getTy(stmt::tyty& r){};
 
 
 stmt::block getBlock(stmt::block& r){
@@ -1024,7 +1303,7 @@ struct mStmtDefine {};
     enum ty{            _include,_define,_if,_ifdef,_ifndef,_elif,_elifdef,_else};
    
 template <temp q,bool CEXPR>
-bool ConstructorAvail(type<q> lhs,value<temp::inst>& vl,stmt::StmtFuncDecl* res=nullptr){// Checks if there is a constructor for value
+bool ConstructorAvail(type lhs,value<temp::inst>& vl,stmt::StmtFuncDecl* res=nullptr){// Checks if there is a constructor for value
     for(stmt& pr : lhs.constructors ) {
         stmt::StmtFuncDecl& ref = pri::get<stmt::StmtFuncDecl>(pr.var);
         if(CEXPR and ref.ConstExpr or !CEXPR){
@@ -1035,9 +1314,9 @@ bool ConstructorAvail(type<q> lhs,value<temp::inst>& vl,stmt::StmtFuncDecl* res=
     return false;
 };
 template <temp q>
-bool operator<(type<q>& lhs,value<temp::inst>& vl){// Checks if there is a constructor for value
+bool operator<(type& lhs,value<temp::inst>& vl){// Checks if there is a constructor for value
     return ConstructorAvail<q,false>(lhs,vl);};
-bool operator<=(type<q>& lhs,value<temp::inst>& vl){// Same as < but with constexpr
+bool operator<=(type& lhs,value<temp::inst>& vl){// Same as < but with constexpr
     return ConstructorAvail<q,true>(lhs,vl);};
 
 
@@ -1062,10 +1341,9 @@ struct mStmtVersion;
         switch(*r){
             case result::rValue : {return pri::get<value<q>>(*res).tp->isCompound();}
             case result::rVar : {return pri::get<stmt::StmtVarDecl*>(*res)->tp->isCompound()}
-            case result::rType : {return pri::get<type<q>*>(*res)->isCompound();}
+            case result::rType : {return pri::get<type*>(*res)->isCompound();}
             default :{return false;}
         }
-
     };
 
     template <temp q>
@@ -1094,7 +1372,7 @@ struct ast{
     
     
     
-    pri::list<type<q>> Types;
+    pri::list<type> Types;
     pri::list<stmt::StmtFuncDecl> Funcs;
     
     bool nsblck=true;bool fblck;bool swBlock;bool IfChain;
@@ -1106,7 +1384,7 @@ struct ast{
     param_list<temp::inst>* curSpec;
     pri::stack<stmt::StmtTry*> tries;
     stmt::FuncDef* fdef;
-    type<q>* curtp;
+    type* curtp;
 
     stmt::FuncDef* entry_pt;bool foundEntry=false;
 
@@ -1175,7 +1453,7 @@ struct ast{
     template <typename astNd>
     pri::list<astNd>& get(){pri::get<pri::list<astNd>>(tup);};
 
-    type<temp::inst> getTp(type<temp::meta>* t, stmt::param_list pl={}){
+    type getTp(type* t, stmt::param_list pl={}){
         return t->get<temp::inst,temp::inst>(pl);
     };
 
@@ -1194,12 +1472,13 @@ struct ast{
         throw NameNotFound();
     } ;
     template <typename F>
-    void findFrom(std::string name,result* r,resty* res, F* from){
-        if constexpr (std::is_same<F,stmt::NS>::value){cur->find(name,r,res);}
-        else if constexpr (std::is_same<F,stmt::Enum>::value){*r =result::rEnumMem; cur->findWhatFrom<Enum::member,Enum>(name,pri::get<Enum::member*>(res),from);}
-        else if constexpr (std::is_same<F,stmt::Union>::value){cur->find(name,r,res);}
-        else if constexpr (std::is_same<F,DeclType<q>>::value){cur->tp.find(name,r,res);}
-        else if constexpr (std::is_same<F,type<q>>::value){cur->find(name,r,res);}
+    void findFrom(std::string name,accMember& m, F* from){
+        if constexpr (std::is_same<F,stmt::NS>::value){from->find(name,r,res);}
+        else if constexpr (std::is_same<F,stmt::Enum>::value){*r =result::rEnumMem;pri::get<stmt::Enum::EnMember*>(res)= &from->find(name);}
+        else if constexpr (std::is_same<F,stmt::Union>::value){from->find(name,r,res);}
+        else if constexpr (std::is_same<F,DeclType<q>>::value){fromr->tp.find(name,r,res);}
+        else if constexpr (std::is_same<F,type>::value){cur->find(name,r,res);}
+        else if constexpr (std::is_same<F,stmt::Using>::value){cur}
         throw NameNotFound();
     };
 
@@ -1230,18 +1509,19 @@ struct ast{
         else {find(res.front().name,&res.front().r,&res.front().inst);}
         for(++it;it!=res.end();++it){
             switch(last->r){
-                case result::rType : {try{findFrom<type<q>>(it->name,&it->r,&it->inst,pri::get<type<q>*>(it->inst));}
-                    catch(const MemberNotFound& e){return false;};return true;};
-                case result::rNs : {{try{findFrom<stmt::NS>(it->name,&it->r,&it->inst,pri::get<stmt::StmtNS*>(last->inst));}
-                                catch(const MemberNotFound& e){return false;};return true;};}
-                case result::rEnum : {
-                    try {findFrom<stmt::NS>(it->name,&it->r,&it->inst,pri::get<stmt::Enum*>(last->inst));}
-                    catch(const MemberNotFound& exc){ return false;err::e(*this,exc);}
-                    return true;};
-                
+                case result::rVar : {try{
+                    auto lr  =pri::get<stmt::VarDecl*>(last->inst);lr->resolve();
+                    if(lr.tpi.hasSwizle()){}// TODO
+                    findFrom<stmt::NS>(it->name,&it->r,&it->inst,pri::get<stmt::VarDecl*>(last->inst));};break;}
+                case result::rNs : {try{findFrom<stmt::NS>(it->name,&it->r,&it->inst,pri::get<stmt::StmtNS*>(last->inst));};break;}
+                case result::rEnum : {try {findFrom<stmt::rEnum>(it->name,&it->r,&it->inst,pri::get<stmt::Enum*>(last->inst))};return;}
+                case result::rType : {try{findFrom<type>(it->name,&it->r,&it->inst,&(pri::get<stmt::DeclType*>(last->inst).get(last->plist);));};break;}
+                case result::rUsing : {try{ pri::get<stmt::Using*>(last->inst).get(last->plist).find(it->name,&it->r,&it->inst);}; break;};
+                case result::rTypeDef : {try{findFrom<stmt::TypeDef>(it->name,&it->r,&it->inst,pri::get<stmt::TypeDef*>(last->inst));}; break;};
+                case result::rParam : {try{findFrom<value>(it->name,&it->r,&it->inst,pri::get<stmt::param<temp::inst>);} }
             }
             if(it->t==result::rParam){pri::get<param<temp::meta>>(it->inst).refs.push_back(&(*it));return;}
-            last = it;
+            last = it;it->resolve(*this);
         };
     };
     
@@ -1282,13 +1562,54 @@ struct ast{
         aclist.resolved=true;
         return true;
     };
-    template <typename T>
-    pri::variant<stmt::NS*, stmt::DeclType* > findFrom(T* f , std::string name,bool* strct){
+    stmt::Operator* findOperator(op::ty& Op, type& tl, type& tr){
+        if(!funcs.empty()){
+            for(  stmt::FuncDef* res : pri::reverse(funcs)){
+                try{stmt::Operator* r= res->findOperator(Op,tl,tr);return r;}
+                catch(const OperatorNotFound& e){}
+            };
+        }
+        if(!strcts.empty()){
+            for(  stmt::FuncDef* res : pri::reverse(strcts)){
+                try{stmt::Operator* r= res->findOperator(Op,tl,tr);return r;}
+                catch(const OperatorNotFound& e){}
+            };
+        }
+            for(  stmt::FuncDef* res : pri::reverse(nss)){
+                try{stmt::Operator* r= res->findOperator(Op,tl,tr);return r;}
+                catch(const OperatorNotFound& e){}
+            };
+            throw OperatorNotFound();
+    };
+    stmt::FuncDef* findOperatorLit(std::string name, dtype& t){stmt::Operator* r ;bool found=true;
+        
+        if(!funcs.empty()){
+            for(  stmt::Operator* res : pri::reverse(funcs)){
+                try{ r= res->findOperator(op::ty::opdq,name);break;}
+                catch(const OperatorNotFound& e){found=false;}
+            };
+        }
+        else if(!strcts.empty()){
+            for(  stmt::Operator* res : pri::reverse(strcts)){
+                try{ r =res->findOperator(op::ty::dq,name);break;}
+                catch(const OperatorNotFound& e){found=false;}
+            };
+        }
+        else {
+            for(  stmt::Operator* res : pri::reverse(nss)){
+                try{r=res->findOperator(op::ty::dq,name);break;}
+                catch(const OperatorNotFound& e){found=false;}
+            };
+        }
+        if(found){
+            try{res->get(name);}
+        }
 
-    } ;
-    stmt::Operator* findOperator(op::ty Op){
-        if(strcts.empty()){stmt::Operator* r = nss.back().findOperator(Op);return r;}
-        else {stmt::Operator* r = strct.back().t.findOperator(Op);return r;}
+        
+    };
+    template <bool Pre>
+    stmt::Operator* findOperator(op::ty& Op, type& tl){
+
     };
     bool declared(accMember_seq& a){
         pri::variant<stmt::NS*, stmt::DeclType* > cur;bool strct;
@@ -1299,6 +1620,13 @@ struct ast{
         for(accMember& it : a){
             
         };
+    };
+    bool ShadowCheck(std::string& name){
+        for( param_list<temp::meta>& it : pri::reverse(curtemp)){
+            for(param<temp::meta>& ite  : it ){
+                if(ite.name == name ){return true;}}
+        };
+        return false;
     };
     void procFinal(){
         if(!foundEntry){err::e(EntryPtNotFound());return;}
@@ -1311,7 +1639,27 @@ struct ast{
 
     
 
-    ast() {nss.push_back(&global);};
+    ast() {nss.push_back(&global);
+        if(sys.l ==langauge::stmsl){addGlobal<language::stmsl>(*this);}
+        else {addGlobal<language::cpp>(*this);}
+    };
+};
+
+void accMember_seq::resolve(ast& a){
+    try{a.find(*this);}
+    catch (const MemberNotFound& e){err::e(*this,e);};
+    catch (const NameNotFound& e){err::e(*this,e);};
+    catch (const MemberNotFound<Enum>& e){err::e(*this,e);}
+};
+
+FuncDef* findOperator(ast& a, op::ty& o , value& vl, value& vr){
+    a.findOperator(o,vl.tp,vl.tp)
+};
+template <bool pre>
+FuncDef* findOperator(ast& a, op::ty& o , value& vl);a->findOperator(o,vl.t);
+};
+FuncDef* findOperatorLit(ast& a,std::string name){
+
 };
 
 #endif

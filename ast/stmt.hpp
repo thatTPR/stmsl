@@ -10,7 +10,7 @@ enum AttribT {
     LayoutOnly,LayoutExcl,Every,
     ClassMember,Func,Method
 };
-enum qual {qExtern=0,qStatic=1,qConstExpr=2,qConstEval,qConst=3,qVolatile,qVirtual=4,qOverride=5,qExplicit=6,qFinal=7,qNoexcept=9,qInline=10,qExplicit=11,qin=32,qinout=33,qout=34,qflat=35};
+enum qual {qExtern=0,qStatic=1,qConstExpr=2,qConstEval,qConst=3,qVolatile,qregister,qthread_local,qVirtual=4,qOverride=5,qExplicit=6,qFinal=7,qNoexcept=9,qInline=10,qExplicit=11,qin=32,qinout=33,qout=34,qflat=35};
 #define QUALS_EN qExtern,qStatic,qConstExpr,qConstEval,qConst,qVolatile,qin,qinout,qout,qflat,qVirtual,qOverride,qExplicit,qFinal,qNoexcept
 template <qual... Qs >
     struct Qualifiable {
@@ -23,6 +23,8 @@ template <qual... Qs >
         std::enable_if<one_of<qConstEval,Qs...>::value,bool>::type ConstEval=false;
         std::enable_if<one_of<qConst,Qs...>::value,bool>::type Const=false;
         std::enable_if<one_of<qVolatile,Qs...>::value,bool>::type Volatile=false;
+        std::enable_if<one_of<qregister,Qs...>::value,bool>::type Register=false;
+        std::enable_if<one_of<qthread_local,Qs...>::value,bool>::type Thread_local=false;
         std::enable_if<one_of<qin,Qs...>::value,bool>::type in=false;
         std::enable_if<one_of<qinout,Qs...>::value,bool>::type inout=false;
         std::enable_if<one_of<qout,Qs...>::value,bool>::type out=false;
@@ -34,21 +36,25 @@ template <qual... Qs >
         std::enable_if<one_of<qNoexcept,Qs...>::value,bool>::type Noexcept =false; 
         template <qual q>
         struct ptr {bool Qualifiable<Qs...>::*  p;}
-template <> struct ptr<qExtern>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Extern;};
-template <> struct ptr<qStatic>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Static;};
-template <> struct ptr<qConstExpr>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::ConstExpr;};
-template <> struct ptr<qConstEval>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::ConstEval;};
-template <> struct ptr<qConst>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Const;};
-template <> struct ptr<qVolatile>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Volatile;};
-template <> struct ptr<qin>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::in;};
-template <> struct ptr<qinout>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::inout;};
-template <> struct ptr<qout>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::out;};
-template <> struct ptr<qflat>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::flat;};
-template <> struct ptr<qVirtual>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Virtual;};
-template <> struct ptr<qOverride>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Override;};
-template <> struct ptr<qExplicit>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Explicit;};
-template <> struct ptr<qFinal>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Final;};
-template <> struct ptr<qNoexcept>{static constexpr bool Qualifiable<Qs...>::* p=&Qualifiable<Qs...>::Noexcept;};
+        template ptrT<bool Qualifiable::* s>{static constexpr bool Qualifiable<Qs...>::* =s; }
+
+template <> struct ptr<qExtern> : ptrT<&Qualifiable<Qs...>::Extern>{};
+template <> struct ptr<qStatic> : ptrT<&Qualifiable<Qs...>::Static>{};
+template <> struct ptr<qConstExpr> : ptrT<&Qualifiable<Qs...>::ConstExpr>{};
+template <> struct ptr<qConstEval> : ptrT<&Qualifiable<Qs...>::ConstEval>{};
+template <> struct ptr<qConst> : ptrT<&Qualifiable<Qs...>::Const>{};
+template <> struct ptr<qVolatile> : ptrT<&Qualifiable<Qs...>::Volatile>{};
+template <> struct ptr<qin> : ptrT<&Qualifiable<Qs...>::in>{};
+template <> struct ptr<qinout> : ptrT<&Qualifiable<Qs...>::inout>{};
+template <> struct ptr<qout> : ptrT<&Qualifiable<Qs...>::out>{};
+template <> struct ptr<qflat> : ptrT<&Qualifiable<Qs...>::flat>{};
+template <> struct ptr<qVirtual> : ptrT<&Qualifiable<Qs...>::Virtual>{};
+template <> struct ptr<qOverride> : ptrT<&Qualifiable<Qs...>::Override>{};
+template <> struct ptr<qExplicit> : ptrT<&Qualifiable<Qs...>::Explicit>{};
+template <> struct ptr<qFinal> : ptrT<&Qualifiable<Qs...>::Final>{};
+template <> struct ptr<qNoexcept> : ptrT<&Qualifiable<Qs...>::Noexcept>{};
+template <> struct ptr<qregister>: ptrT<&Qualifiable<Qs...>::Register>{};
+template <> struct ptr<qthread_local>: ptrT<&Qualifiable<Qs...>::Thread_local>{};
 
         template <qual Q>
         static constexpr bool hasQual(){return one_of<Q,Qs...>::value;}
@@ -96,7 +102,7 @@ struct DefType ;
 
 struct Label ;
 struct Goto;
-using Expr = expr;
+using Expr=  expr;
 struct While;
 struct For;
 struct Do;
@@ -106,7 +112,7 @@ struct Case;
 using Default = block;
 struct If;
 struct Else;
-
+struct block
 using Return = Expr;
 struct FuncDecl;
 struct FuncDef ;
@@ -201,11 +207,10 @@ struct Enum : public pri::deque<enmember> {
     bool enclass=false;attrib_list ats;
     integralT intt; bool SpeqSeq=false;
     using member = enmember;
-
     void resolve(ast& a){for(enmember& i : *this){i.resolve(a);}};
-    expr<temp::meta> find(std::string name){
-        for(enmember& it : *this){if(it.name==name){return &it;}}
-        throw MemberNotFound<EnumT>("Enum Member Not Found");
+    EnMember& find(std::string name){
+        for(EnMember& it : *this){if(it.name==name){return &it;}}
+        throw MemberNotFound<Enum>("Enum Member Not Found");
     };
     operator bool (){return isDependent;}
 } ;
@@ -226,7 +231,7 @@ struct Concept {
 };
 
 
-using funcvar = pri::variant<Goto,Label,Expr,While,For,Do,ForRange,Switch,If,Else,Return,Try,Catch,Throw,block,Asm>;
+using funcvar = pri::variant<Goto,Label,Expr,While,For,Do,ForRange,Switch,If,Else,Return,Try,Catch,Throw,block,Asm,StructuredBinding>;
 struct funcStmt{funcvar inst;stmtty t;
     template <typename T>
     funcStmt(stmtty i,T& _d) : t(i){pri::get<T>(inst)=d;};
@@ -238,20 +243,33 @@ struct funcStmt{funcvar inst;stmtty t;
         if (s==st){_resolve<getTy<st>::ty>(inst).resolve(a);}
         else if constexpr (sizeof...(sts)>0){Which<sts...>(s,a);}
     };
+    template <stmtty st,sttmty... sts>
+    bool cexpr(){
+        if (t==st){return pri::get<getTy<st>::ty>(inst).cexpr();}
+        else if constexpr(sizeof...(sts)>0){cexpr<sts...>();}
+    };
     void resolve(ast& a){Which<eGoto,eLabel,eExpr,eWhile,eFor,eDo,eForRange,eSwitch,eIf,eElse,eReturn,eTry,eCatch,eThrow,eblock,eAsm>(t,a);}
 };
     
     struct  block :pri::deque<funcStmt>{
     template <typename T>
     void push_back(T& inst){emplace_back(getTyf<T>(),inst); };
-    void resolve(ast& a){
-        for( funcStmt it : *this){is.resolve(a);         };
+    bool resolved=false;
+    void resolve(ast& a){ if (resolved){return ;}
+        for( funcStmt it : *this){it.resolve(a);         };
+        resolve=true;
+    };
+    bool Cexpr  = false;
+    bool cexpr(){if(Cexpr){return true;}
+        for(funcStmt it : *this){if(!it.cexpr()){return false};};
+        Cexpr=true;return true;
     };
 };
 
 
 struct Label{
     std::string name;
+    bool cexpr(){return true;}
     Label(std::string n)  : name(n);
 } ;
 struct Goto{funcStmt* lbl;std::string nameLbl;
@@ -266,6 +284,7 @@ struct Goto{funcStmt* lbl;std::string nameLbl;
         };
         throw LabelNotFound();
     }
+    bool cexpr(){return true;}
 };
     struct Attribs {
         ;
@@ -280,7 +299,7 @@ struct Goto{funcStmt* lbl;std::string nameLbl;
 
         pri::deque<NS> nss; 
         pri::deque<NS> inline_nss;
-        // std::enable_if<q==temp::inst,type<temp::> >::type types;// TODO make correct
+        // std::enable_if<q==temp::inst,type >::type types;// TODO make correct
         pri::deque<VarDecl> vars;
         pri::deque<FuncDecl> funcs;
         pri::deque<Operator> operators;
@@ -391,30 +410,62 @@ struct Goto{funcStmt* lbl;std::string nameLbl;
             throw OperatorNotFound();
         };
         
+        template <bool pre>
+        FuncDef* findOperator(op::ty& o,type& tp){
+            Operator* r = findOperator(o);
+            for(Operator::SpecN& it : r->specs){
+                if constexpr (pre){if(it.t.args.empty()){return it.t ;}}
+                else if(!it.t.args.empty()){return it.t ;}
+            }
+            throw OperatorNotFound(o);
+        };
+        FuncDef* findOperator(op::ty& o,type& tl,type& tr){
+            Operator* r = findOperator(o);
+            for(Operator::SpecN& it : r->specs){
+                if(it.t.args.size()==2){
+                    auto& i  =it.t.args.begin();
+                    if(*(i.tpi) != tl ){break;}
+                    ++i;
+                    if(*(i.tpi) != tr ){break;}
+                    return it.t;
+                }
+            }
+            throw OperatorNotFound(o);
+        };
+
+
+        
         FuncDecl* findFunc(std::string s){FuncDecl* r = find<FuncDecl* , &NS::funcs>(name);return r;};
         operator std::string(){return this->name;}
     };
     using tyty = accMember_seq ;
     
-    struct VarDecl : public Qualifiable<qExtern,qConst,qin,qout,qflat,qConstExpr,qConstEval,qStatic>{
-        
-        tyty tp;std::string name;expr arrSize=0;
-        bool memberPtr;tyty ptrmem;// In case of ptrToMember or funcPtr
+    struct VarDecl : public Qualifiable<qExtern,qConst,qin,qout,qflat,qConstExpr,qConstEval,qStatic,qregister,qthread_local,qInline>{
+        bool pack=false;
+        tyty tp;std::string name;bool Auto;
+        bool memberPtr=false;tyty ptrmem;// In case of ptrToMember or funcPtr
         bool Default;expr DefaultValue;
         
+        type* tpi ; ptrMember* member;
         type getTypePtrMem(){
             return ptrmem.back().Template ?
             pri::get<stmt::TypeDecl*>(ptrmem.back().inst)->get(ptrmem.back().plist) : pri::get<stmt::TypeDecl*>(ptrmem.back().inst).top(); 
-
         }
-        type getType(){
+        type* getType(){
             return tp.back().Template ?
-            pri::get<stmt::TypeDecl*>(tp.back().inst)->get(tp.back().plist) : pri::get<stmt::TypeDecl*>(tp.back().inst).top(); 
+            pri::get<stmt::TypeDecl*>(tp.back().inst)->get(tp.back().plist).t : pri::get<stmt::TypeDecl*>(tp.back().inst).top(); 
         };
+
+        
 
         bool isPtr(){return ptrNum>0;}
         bool isRef(){return refNum<0;}
         bool isURef(){return refNum==2;}
+        void isrvalueRef(){return tp.refNum==1;}
+        void isrvalueRef(){return tp.refNum==2;}
+        void isptr(){return isPtr();}
+        void isPtrMem(){return memberPtr;}
+
         VarDecl() = default;
 
         VarDecl(tyty& _tp) : tp(_tp){};
@@ -423,17 +474,32 @@ struct Goto{funcStmt* lbl;std::string nameLbl;
             push(quals);
         };
 
-        constexpr VarDecl( type<temp::inst>& tp,std::string str) : name(n) {
-            push(quals);pri::get<type<temp::meta>>()
+        constexpr VarDecl( type& tp,std::string str) : name(n) {
+            push(quals);pri::get<type>()
         };
-        
+        bool Resolved=false;
+        void resolve(ast& a){if(Resolved){return;}
 
+            tp.resolve(a);
+            if(tp.back().r!=result::rType){throw BadAccMemberForType();}
+            if(tp.back().Template){tpi = new type(pri::get<DeclType*>(tp.back().inst)->get(tp.back().plist);}
+           else {tpi = new type(pri::get<DeclType*>(tp.back().inst).Def);}
+           
+           if(memberPtr){ptrmem.resolve(a);}
+            if(memberPtr){member=new ptrMember(tpi,pri::get<VarDecl*>(member.back().inst)) ;}
+            
+        }
         VarDecl(tyty& tpp, std::string n , size_t r=0 , size_t p=0):tp(tpp),name(n),refNum(r),ptrNum(p){};
         VarDecl(tyty& tpp,tyty p ,std::string n , size_t r=0 , size_t p=0):tp(tpp),ptrmem(p),name(n),refNum(r),ptrNum(p){};
     };
     
-    struct arg_list : public pri::deque<VarDecl>{bool pack;};
-    using init_args =  pri::deque<expr>;
+    struct arg_list : public pri::deque<VarDecl>{bool pack;
+    bool isValidQuals(){
+        for(VarDecl& it : *this){if(it.getQual<qExtern>() or it.getQual<qInline>() or it.getQual<qStatic>()){return false;}}
+            return true;
+        }
+    };
+    using init_args :  pri::deque<expr> { bool pack};
 
     template <typename SpecT>
     struct SpecIncl {
@@ -521,6 +587,8 @@ struct Goto{funcStmt* lbl;std::string nameLbl;
 tyty arrowRet;
 
 
+
+
         pri::deque<NS*> usingNS;
         pri::deque<FuncDecl> funcs;
         pri::deque<Operator> operators;
@@ -529,6 +597,7 @@ tyty arrowRet;
         pri::deque<Using> usings;
         pri::deque<TypeDef> tdefs;
         pri::deque<Concept> concepts;
+
      template <typename T>
         struct ptrmem ;
         template <> struct ptrmem<NS>          {static constexpr pri::deque<NS> NS::* ptr=&NS::usingNS;};
@@ -577,10 +646,38 @@ tyty arrowRet;
             };
             throw OperatorNotFound();
         };
-
+        template <bool pre>
+        FuncDef* findOperator(op::ty& o,type& tp){
+            Operator* r = findOperator(o);
+            for(Operator::SpecN& it : r->specs){
+                if constexpr (pre){if(it.t.args.empty()){return it.t ;}}
+                else if(!it.t.args.empty()){return it.t ;}
+            }
+            throw OperatorNotFound(o);
+        };
+        FuncDef* findOperator(op::ty& o,type& tl,type& tr){
+            Operator* r = findOperator(o);
+            for(Operator::SpecN& it : r->specs){
+                if(it.t.args.size()==2){
+                    auto& i  =it.t.args.begin();
+                    if(*(i.tpi) != tl ){break;}
+                    ++i;
+                    if(*(i.tpi) != tr ){break;}
+                    return it.t;
+                }
+            }
+            throw OperatorNotFound(o);
+        };
+        FuncDef* findOpeatorLit(op::ty& o, t)
         FuncDecl* findFunc(std::string s){FuncDecl* r = find<FuncDecl* , &NS::funcs>(name);return r;};
      
         void setContracts(preC& pr,bool prb,postC& poc,bool pob){Pre=pr;preb=prb;Post=poc;postb=pob;}
+
+        bool cexpr(){return body.cexpr();}
+        bool ceval(){return cexpr();}
+        bool ceval(init_args& args){
+            FuncDef& fdef=*this;for(expr e : args){if(!e.isCeval()){return false;}}
+        };
         FuncDef(attrib_list _atlist,std::vector<qual> _quals,arg_list args,block _body) : atlist(_atilst),body(_body{ push(quals);}; 
         
         void resolve(ast& a){rett.resolve(a);args.resolve(a);body.resolve(a);};
@@ -594,7 +691,7 @@ tyty arrowRet;
         arg_list<temp::inst> args;
         tyty rett;
 
-
+std::string name;
         template <size_t _argcIn,size_t _argcOut>
         struct requ {static constexpr size_t argcIn = _argcIn;static constexpr size_t argcOut = _argcIn;};
         template <bool inC,bool oC>
@@ -711,6 +808,10 @@ tyty arrowRet;
 
         FuncDecl(std::string n,accMember_seq& accl,arg_list& prml): name(n){ret=accl;args=prml;};
         FuncDecl(FuncDef&& fdef){specs.push_back(fdef);}
+
+        FuncDecl(std::string n , param_list<temp::meta>&& pl , block _body){
+
+        };
         VarDecl& searchArg(sdt::string n){
             for(varDecl& it : args){if(it.name==n){return it;}}
         };
@@ -733,16 +834,8 @@ tyty arrowRet;
         ConstructorDecl() = default;
     };
     struct DefType : Attribs,Qualifiable<qExtern>{ 
-        
-        type<temp::meta> t;
-        void addType(type<temp::meta>& argt){t.variables.push_back(argt);};
-        type<temp::meta>& findName(std::string s){
-            for(type<temp::meta>& it : t.dependnents){if(it.name==s){return it;}};
-            // for(type<temp::inst>& it : t.variables){if(it.name==s){return it;}};
-            for(type<temp::meta>& it : t.methods){if(it.name==s){return it;}};
-            for(type<temp::meta>& it : t.constructors){if(it.name==s){return it;}};
-            throw  NameNotFound();
-        };
+        type t;
+        type get(){return t;};
         void resolve(ast& a){t.resolve(a);}
         DefType(std::string name) : t(name) {}
     };
@@ -750,68 +843,86 @@ tyty arrowRet;
     struct DeclType : Attribs,Qualifiable<qExtern>,public SpecIncl<DefType> {
         std::string name;
         bool isUnion=false;bool anon=false; bool dependentType;
-
-        void resolve(ast& a){SpecsResolve(a);}
-        DefType make(param_list<temp::inst>& plist){
+        void resolve(ast& a){SpecsResolve(a);Resolved=true;;}
+        type make(param_list<temp::inst>& plist){
 
         };
+        void get(param_list<temp::inst>& pl){
+            if()
+        }
         type getType(){return top();}
         DeclType(std::string n) : name(n){}
+        DeclType(std::string n ,type::ty t, param_list<temp::meta>&& m){
+            name=n;Def.t=t;plist=m;
+        };
     };
-    struct While{Expr condition;block body;}
+    struct While{Expr condition;block body;bool cexpr(){return condition.cexpr() && body.cexpr();}}
     struct For : Attribs{Expr init; Expr condition;Expr incr;
             block body;
-            
+            bool cexpr(){return  init.cexpr()&& condition.cexpr()&&incr.cexpr() && body.cexpr();}
     };
     struct ForRange :Attribs{
         VarDecl vardecl;
         Expr ref;
         block body; 
-        
+        bool cexpr(){return  vardecl.cexpr()&& ref.cexpr() && body.cexpr();}
+
         decltype(*this) operator=(For& rhs){vardecl=rhs.init;return *this;}
     };
     struct Do : public While{bool d;};
     struct Case {expr ex;block body;
+                bool cexpr(){return  ex.cexpr()&&  body.cexpr();}
+
         Case(expr&& e){ex=e;}
     };
     
     struct Switch : Attribs,Qualifiable<qConstExpr,qConstEval> {
-        bool assign;value<temp::inst> vl;
+        bool assign;value vl;
         block body;
         pri::deque<Case> css;block dflt; 
         expr ex; bool Init;expr inexpr;
-        
+        bool Cexpr=false;
+        bool cexpr(){if(Cexpr){return true;}
+        if(!(vl.cexpr()&&  body.cexpr() && ex.cexpr())){return false;} ;
+        for(auto& it : css){if(!css.cexpr()){return false;}}
+        return dflt.cexpr();
+        };
     } ;
     struct If : Attribs,Qualifiable<qConstExpr,qConstEval> { 
         Expr condition;
         block body;
         bool Else=false;bool If=false;
-        Else* el;
+        If* else;If* last;
+        struct iter {
+            If* i;
+            If* operator->(){return i;}
+            If* operator*(){return *i;}
+            iter& operator++(){return i->else;}
+            iter& operator++(int){return i->else;}
+            iter(If* _i){i = _i;}
+        };
+        iter begin(){return iter(this);}
+        iter end(){return iter(last->el);}
+        bool _cexpr(){return condition.cexpr() && body.cexpr();}
+        bool Cexpr = false;
+        bool cexpr(){if(Cexpr){return true;}
+            for(If& it : *this){
+                if(!it.cexpr()){return false;}
+            };Cexpr=true;
+            return true;
+        };
         void resolve(ast& a){condition.resolve(a);body.resolve();for( Else* it : Elses){it->resolve(a);}};
         If(expr e) : condition(e) {}
     };
-    struct Else : Attribs{
-        pri::variant<If*,Else*> IfS;
-        bool elIf;
-        Else* el;bool cond;expr condition;
-        block body;
-        
-        void resolve(ast& a){
-            if(cond){condition.resolve(a);}body.resolve(a);
-        }
-        Else(If* If) : elIf(false) {pri::get<If*>(Ifs)=If;}
-        Else(Else* If) : elIf(false) {pri::get<If*>(Ifs)=If;}
-    };
-    
     struct Using : Attribs{
         bool Typename;
-        param_list prms;
+        param_list<temp::meta> prms;
         std::string name ;
 
         tyty expr;
         
-
-        type<temp::> get(param_list<temp::inst> pl={}){};
+        void resolve(ast& a){expr.resolve(a);};
+        type get(param_list<temp::inst> pl={}){prms.push(pl)};
     };
     struct Concept : Attribs { // C++20
         param_list plist;
@@ -828,10 +939,10 @@ tyty arrowRet;
     };
 
     struct TypeDef {
-        tyty tp;bool anon ;type<temp::inst> anontp;bool dtype=false;expr e;
+        tyty tp;bool anon ;type anontp;bool dtype=false;expr e;
         std::string name ;
         TypeDef() = default ; 
-        TypeDef(type<temp::inst> ty,std::string n) : t(ty),name(n) {}
+        TypeDef(type ty,std::string n) : t(ty),name(n) {}
     };
     struct Layout {
         enum stand {std430,std140};
@@ -855,12 +966,14 @@ tyty arrowRet;
     struct Catch  : Attribs{
     VarDecl var;
     block body;
-    
-        void resolve(ast& a){body.resolve(a);}
+        bool resolved=false;
+        void resolve(ast& a){if(resolved){return;}body.resolve(a);resolved=true;}
+
     };
     struct  Throw {
         expr val;
-        void resolve(ast& a){val.resolve(a);}
+        bool resolved=false;
+        void resolve(ast& a){if(resolved){return;}; val.resolve(a);}
         Throw(expr&& _val)  {val=_val;}
     };
     struct Asm : Attribs{
@@ -874,13 +987,11 @@ tyty arrowRet;
         pri::list<balancedToken> blt_seq;
     };
     struct StructuredBinding : Attribs{
-        struct binding {
-            bool pack;std::string name;
-        };
+        struct binding {bool pack;std::string name;type& t;value vl;binding(std::string n,bool pc=false): name(n) , pack(pc){}};
         pri::list<binding> bn;
-        accMember_seq ty;bool Auto;
+        bool Auto;type* t;
         expr e;
-
+        void resolve(ast& a){e.resolve(a);};
     };
     struct NullStmt : Attribs {};
     
