@@ -198,7 +198,7 @@ struct kw_Union : public kw<"union",type<temp::meta>,kwty::Struct>{
     void proc(parser& p){p.getStmt<stmt::DeclUnion>();};
 }
 
-using kw_Enum = kw<"enum",Enum , kwty::stmt>;
+using kw_Enum = kw<"enum",stmt::Enum , kwty::stmt>;
 using KW_TYPEKW=KW_set<kw_Enum, kw_Struct,kw_Class ,>;#ifdef CXX_C
 template <Str s, op::ty op>
 struct kw_opt  : public kw<s,expr,kwty::prim>{
@@ -208,12 +208,18 @@ using kw_New = kw<"new",op::ty::opNew>
 using kw_Delete = kw<"delete",op::ty::opDelete>
 using kw_sizeof = kw<"sizeof",op::ty::opSizeof>
 
+template <Str s , op::ty o >
+struct kw_cast : kw<s,epxr,kwty::prim > {
+    void proc(parser& p){p.curCast=  o;};
+};
 using kw_const_cast = kw_cast<"const_cast",op::ty::ConstCast>
 using kw_static_cast = kw_cast<"static_cast",op::ty::StaticCast>;
 using kw_reinterpret_cast = kw_cast<"reinterpret_cast",op::ty::ReinterpretCast>;
 using kw_dynamic_cast = kw_cast<"dynamic_cast",op::ty::DynamicCast>;
 using KW_CASTS = KW_set<kw_const_cast,kw_static_cast,kw_reinterpret_cast,kw_dynamic_cast>;
 
+
+using kw_static_assert = kw<"static_assert",stmt::StaticAssert,kwty::stmt>;
 using KW_OPS = KW_set<KW_New,kwDelete,kw_sizeof> ; 
 
 using kw_Nullptr = kw_cast<"nullptr",value<temp::meta>,kwty::prim>;

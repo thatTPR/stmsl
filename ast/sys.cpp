@@ -23,8 +23,7 @@ namespace stmsl
         explicit Message(const lex::ty& tok ) : l(tok){};
         const char* what() const noexcept override {return msg.c_str();}
         lex::ty& which(){return l;}
-
-    }
+    };
     template <typename T=void>
     struct Except {
         T e;lex::ty le;
@@ -138,6 +137,9 @@ struct RecursiveConstInit : Error<stmt::block>{
 
     RecursiveConstInit(stmt::block& bl, pri::deque<stmt::VarDecl*> vdecls) : vdecl(vds) ; 
 } ;
+template <typename T>
+struct MustBeCexpr  : Error<T>{};
+struct AssertException : Error<StaticAssert>{}
 
 struct ExprParse: Error<expr>{};
 struct ExprError : Error<expr>{};

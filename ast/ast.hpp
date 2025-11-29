@@ -47,6 +47,7 @@ struct op {
         opxor = lex::ty::bxor,opoxoreq=lex::ty::xoreq,
         oindex=lex::ty::lbrack,
         ocall = lex::ty::lparen,
+        opattr=lex::ty::ldi,
         err,none
     
     }
@@ -72,18 +73,10 @@ struct op {
 
 
 template <temp q>
-struct ref ;
-template <temp q>
 struct value ;
 
 template <temp q>
 struct type;
-template <temp q>
-std::string getName(type& ty);
-using nstype = pri::deque<type>;
-template <temp q>
-using type_list<q> = pri::deque<type> ;
-
 
 using constraint = expr;
 
@@ -110,13 +103,31 @@ struct param_list : public pri::deque<param<q>> {
         ptrMember(type* _t, stmt::VarDecl* _mem ) : tp(_t),mem(_mem) {} 
     };
 
+struct accMember_seq;
+
 struct dtype : Qualifiable<qual::QStatic,qConst,qVolatile,qExtern,qConstexpr> {type* t; size_t refNum=0; size_t ptrNum=0;expr arrSize={};dtype()=default;
-    dtype(type* _t) :t(_t){}
+    accMember_seq get(ast& a){};
+dtype(type* _t) :t(_t){}
 };
 
 
-enum class result {rNs,rFunc,rOperator,rEnum,rEnumMem,rVar,rType,rUsing,rTypeDef,rParam,rLambda,rConcept,rSwizzle,rErr};
-using resty = pri::variant<param<temp::meta>*,stmt::NS*,stmt::FuncDecl*,stmt::OperatorDecl*,stmt::Enum*,stmt::Enum::member*,stmt::VarDecl*,stmt::DeclType*,stmt::Using*,stmt::rTypeDef*,stmt::Concept*,value>;
+enum class result {rNs,rFunc,rOperator,rEnum,rEnumMem,rVar,rType,rUsing,rTypeDef,rParam,rLambda,rValue,rConcept,rSwizzle,rErr};
+template <typename T>
+result getResult();
+template <> getResult<param<temp::meta>*>(){return result::rParam;}
+template <> getResult<stmt::NS*>(){return result::rNs;}
+template <> getResult<stmt::FuncDecl*>(){return result::rFunc;}
+template <> getResult<stmt::OperatorDecl*>(){return result::rOperator;}
+template <> getResult<stmt::Enum*>(){return result::rEnum;}
+template <> getResult<stmt::Enum::EnMember*>(){return result::rEnumMem;}
+template <> getResult<stmt::VarDecl*>(){return result::rVar;}
+template <> getResult<stmt::DeclType*>(){return result::rType;}
+template <> getResult<stmt::Using*>(){return result::rUsing;}
+template <> getResult<stmt::rTypeDef*>(){return result::rTypeDef;}
+template <> getResult<stmt::Concept*>(){return result::rConcept;}
+template <> getResult<value>(){return result::rValue;}
+
+using resty = pri::variant<param<temp::meta>*,stmt::NS*,stmt::FuncDecl*,stmt::OperatorDecl*,stmt::Enum*,stmt::Enum::EnMember*,stmt::VarDecl*,stmt::DeclType*,stmt::Using*,stmt::rTypeDef*,stmt::Concept*,value>;
 struct accMember {
         bool Template;param_list<temp::inst> plist;lex::ty acc = lex::ty::none;op::ty oprt;
         std::string name;
@@ -128,6 +139,32 @@ struct accMember {
         accMember(std::string str){name=str;acc=lex::ty::dcolon;}
         accMember(type& _a){r=result::rType;pri::get<value>;}
         
+        bool cexpr(){
+            switch(r){
+case result::rNs:{return true;}
+case result::rFunc:{return true;}
+case result::rOperator:{return true;}
+case result::rEnum:{return true;}
+case result::rEnumMem:{return true;}
+case result::rVar:{pri::get<stmt::VarDecl*>(inst).cexpr();}
+case result::rType:{return true;}
+case result::rUsing:{return true;}
+case result::rTypeDef:{return true;}
+case result::rParam:{return true;}
+case result::rLambda:{return true;}
+case result::rValue:{return true;}
+case result::rConcept:{return true;}
+            }
+        };
+        accMember(std::string _name ,param_list<temp::inst>&& _plist , lex::ty _acc  ) : name(_name) , plist(_plist),  acc(_acc) {};
+
+        template <typename T>
+        accMember(T& v,param_list<temp::inst>&& _plist , lex::ty _acc  ) : name(v.name) plist(_plist),  acc(_acc) {pri::get<T*>(inst)=&v;
+            if constexpr(std::is_same<T,value>::value){r=getResult<T>();}
+            else {r=getResult<T*>();}
+
+        };
+
         accMember(value& vl) { pri::get<value>(inst)=vl;r = result::rValue;}
     };
 struct accMember_seq : public pri::deque<accMember> ,Qualifiable<qConst,qVolatile,qin,qout,qflat> {dtype dt;bool globalAcc;bool resolved;posit pos;bool Auto;
@@ -148,6 +185,10 @@ struct accMember_seq : public pri::deque<accMember> ,Qualifiable<qConst,qVolatil
         };
         return of;
     };
+
+    accMember_seq(std::initializer_list<accMember>& pl){
+        for(accMember& it : pl ){push_back(it);}
+    }
     
 };
 
@@ -162,8 +203,10 @@ struct param : Qualifiable<QUALS_EN>{
     std::enable_if<q==temp::meta, accMember_seq>::type tp ;
     std::enable_if<q==temp::meta, accMember_seq>::type  memberList;
     std::enable_if<q==temp::meta, param_list<temp::meta>>::type args; // Template args
-    std::enable_if<q==temp::metea,pri::deque<accMember_seq::iter>>::type refs ;
+    std::enable_if<q==temp::meta,pri::deque<accMember_seq::iter>>::type refs ;
     std::enable_if<q==temp::inst,expr>::type vl;
+    using instty  = pri::variant<expr,dtype , 
+    std::enable_if<q==temp::inst,pri>
     std::string name;
     std::string str(){
         std::string str = Template ? "Template" :"";
@@ -238,7 +281,7 @@ static constexpr temp other_q = q==temp::meta?temp::inst:temp::meta;
         if(ty.Template){t=ty::Template;}
         else{t=ty::Type;}}
     }
-
+    param(ty _t,bool _pac=false) : t(_t), pack(_pac){}
     param(std::string str,ty _t) :name(str) t(_t) {};
     template <temp Q>
     param(std::string str,type& tp) : name(str) { pri::get<type>(arg)=tp;};
@@ -252,6 +295,12 @@ param(int ref) {*this=param(_Float);construct_type(&_Float,ref);}
 param(float ref) {*this=param(_Int);construct_type(&_Int,ref);}
 param(bool ref) {*this=param(_Bool);construct_type(&_Bool,ref);}
 param() = default ;
+template <typename T>
+param(T&& r,bool pack=false);
+};
+template <typename T>
+param<temp:meta> param(T&& r,bool pack=false){
+    if constexpr(std::is_same<T,stmt::Concept>::value){this->Concept=true;this->cncp=new Concept(r);this->t=cncp->t;}
 
 };
 
@@ -372,6 +421,7 @@ struct attrib_list : public pri::deque<attrib>{
 struct lambda ;
 
 struct NoArgsExc;
+bool iscexpr(expr& e);
 struct value {
     enum ty {anyvalue,
         prvalue=0b100 // operator expressions
@@ -419,7 +469,9 @@ default: {return y;}
         literal(int num):t(ty::IntLit) {pri::get<int>(lit)=num;}
     };
 
-
+    struct value_data{
+        type* t ; 
+    };
 
     #ifdef CXX_C
     using ty = pri::variant<bool,int,uint,float,std::string,char>;
@@ -431,6 +483,22 @@ default: {return y;}
     enum truTy {eaccList,eptrMember,eliteral,eExpr,elambda,einit_list,func};
     tryTy tt;
     
+    
+    
+    template <truTy tTY> struct getTy;
+    template <> struct getTy;
+    template <> struct getTy<eptrMember>{using ty = accMember_seq;};
+    template <> struct getTy<eaccList>{using ty = accMember_seq;};
+    template <> struct getTy<eliteral>{using ty = literal;};
+    template <> struct getTy<eExpr>{using ty = lambda;};
+    template <> struct getTy<elambda>{using ty = init_list;};
+    template <> struct getTy<einit_list>{using ty = expr;};
+    template <> struct getTy<func>{using ty = stmt::FuncDef*};
+
+
+
+    attrib_list atlist;
+
         template <truTy tty>
         void set(accMember_seq& s);
     template <>void setFuncDef<truTy::func>(accMember_seq& s){
@@ -438,7 +506,6 @@ default: {return y;}
         pri::get<stmt::FuncDef*>(val) = new pri::get<stmt::FuncDecl>(s.back().inst).get(s.back().plist);
 
     };
-
 
     template <truTy tty>
     void resolute();
@@ -520,6 +587,22 @@ default: {return y;}
     template <> setTruT<funcCall>(){tt=truTy::efuncCall;}
     template <> setTruT<lambda<q>>(){tt=truTy::elambda;}
     template <> setTruT<init_list>(){tt=truTy::einit_list;}
+
+bool cexpr(){
+    switch(tt){
+        case truTy::eaccList : {pri::get<accMember>(val).cexpr()};
+        case truTy::eptrMember : {return true;}
+        case truTy::eliteral : {return true;}
+        case truTy::eExpr : {return iscexpr(pri::get<expr>(val));}
+        case truTy::elambda : {return return true;}
+        case truTy::einit_list : {return pri::get<init_list>(val).cexpr();}
+        case truTy::func : {return true;}
+    }
+};
+
+    template <typename T>
+    value(T&& v){pri::get<T>(val)=v;setTruT<T>();}
+
     template <typename T>
     value(T&& v,ty p){pri::get<T>(val)=v;t=p;setTruT<T>();}
     value(T&& v,ty p,truTy pt){pri::get<T>(val)=v;t=p;tt=pt;}
@@ -534,13 +617,49 @@ default: {return y;}
         if constexpr (std::is_same<T,char>::value){tp=&_Char;pri::get<literal>(val)=literal(num);}
         if constexpr (std::is_same<T,std::string>::value){tp=&_Str;pri::get<literal>(val)=literal(num);}
     };
-    value(expr<q>&& e) : {t=ty::rvalue;val=e;}  
+    value(expr<q>&& e) : {t=ty::rvalue;val=e;}
+    value(attrib_list&& ats){atlist=ats;}  
 };
 
 
 FuncDef* findOperator(ast& a, op::ty& o , value& vl, value& vr);
 template <bool pre>
 FuncDef* findOperator(ast& a, op::ty& o , value& vl);
+
+
+
+struct lambda {
+
+    stmt::arg_list args;
+    struct  capture {
+        bool byRef;
+        value<q> vl;
+        capture(bool br,value<q>& value) : byRef(br), vl(value);
+    } ;
+    struct captureList : public pri::deque<value>{bool byCopy=false;
+        void push(bool byr,value& vl){
+            for(const auto it : *this){
+                if(it.vl==vl){throw CaptureRepeated();}
+            };
+            emplace_back(byr,vl);
+        };
+
+    };
+    captureList captures;
+    bool Template=false;
+    attrib_list front_ats;
+    attrib_list back_ats;
+    bool Noexcept=false;
+    param_list<q> plist;
+    using argList = stmt::arg_list;
+    using tyty= std::conditional<temp::meta==q,value<q>,type>::type
+    tyty rettp;bool trailing=false;
+    attrib_list attribs;
+    stmt::block body;
+
+};
+FuncDef* findOperator(ast& a, op::ty& o , type& vl, type& vr);
+void findOperator(type* ti,op::ty op,type t);
 struct expr {
     posit pos;
     attrib_list atlist;
@@ -579,6 +698,8 @@ struct expr {
             
             if(cval==ConstVal::ConstExpr ){return true;}
         };
+        template <op::ty oT>
+        bool contained(){return (oT == prefix) and(oT==postfix); }
         bool TrailOp(){return pri::OneOf<opty, opty::binary,opty::ternary>(t);}        
         bool ternary(){return t==opty::ternary;}
         bool par =false; 
@@ -589,26 +710,64 @@ struct expr {
         node(value&& vt) : val(vt){o=op::ty::none;valset=true;}; 
         node(expr& e)  {val=value(e);valset=true;};
         node(expr&& e)  {val=value(std::forward<expr>(e));valset=true;};
-    
+        node(op::ty _opr , op::ty _ob,op::ty _opo ) : prefix(_opr),o(_ob),postfix(_opo){}
     };
     template <op::ty tyOp,node::opty Op>
     
     type* ti ;
     using ExprTy = pri::deque<node>;
     ExprTy e;
+    bool Template =false;bool Typename =true;
+    bool Concept; stmt::Concept cncpt;
 
+    template <op::ty o, op::ty... os >
+    bool OneOf(op::ty& op){
+        if(o==op){return true;}
+        if constexpr (sizeof...(os)>0){return OneOf<os...>(op);}
+        return false;
+    };
 
+    void firstIndex(ExprTy::iterator& it){
+        if(it==e.begin() and (it->prefix==op::ty::oindex) and (it->postfix==op::ty::oindex)){return true;}
+        ExprTy::iterator i = it; --i;
+        if(i->o !=op::ty::none){return true;}
+    };
+
+    bool isCaptures(bool* is){*is=false;
+        for(node& i : this->e){
+            if(OneOf<op::ty::comma,op::ty::none>(i.o)){continue; ;}
+            else if(OneOf<op::ty::eq,op::ty::opband>(i.o)){*is=true;continue;}
+            else {return false;}
+            if(OneOf<op::ty::none>(i.prefix)){continue;}
+            else if(OneOf<op::ty::opband>(i.prefix)){*is=true;}
+            else {return false;}
+            if(OneOf<op::ty::opband,op::ty::none>(i.postfix)){continue;}
+            else if(OneOf<op::ty::opband>(i.postfix)){continue;}
+            else {return false;}
+        };
+        return true;
+    };
+    lambda::captureList getCaptures(){
+        lambda::captureList cl;
+        for(node& n : *this){
+            if(n.prefix==op::ty::oband or (n.postfix==op::ty::oband) or (n.o == op::ty::oband)){cl.emplace_back(true,n.val);}            
+            else if(n.prefix==op::ty::opeq or (n.postfix==op::ty::opeq) or (n.o == op::ty::opeq)){cl.emplace_back(false,n.val);}
+        };
+        return cl;
+    };
+   
     
         template <bool _preb,bool _postb> struct btype {static constexpr ternary=false;static constexpr bool pre = _preb;static constexpr bool post = _postb;static constexpr bool binary=false;} 
         struct ternary { static constexpr ternary=true;static constexpr bool pre = false;static constexpr bool post=false;  static constexpr bool binary=false;}
         template <op::ty o > struct fix  {static constexpr ternary=false;static constexpr bool pre = false;static constexpr bool post=false;  static constexpr bool binary=true;}
 
-        template <> struct fix<op::ty::Not> : btype{};
-        template <> struct fix<op::ty::opbnot> : btype{};
-        template <> struct fix<op::ty::opp> : btype{};
-        template <> struct fix<op::ty::omm> : btype{};
-        template <> struct fix<op::ty::oppack> : btype{};
-        template <> struct fix<op::ty::opcond> :ternary {};
+        template <> struct fix<op::ty::Not> : btype<true,false>{};
+        template <> struct fix<op::ty::opbnot> : btype<true,false>{};
+        template <> struct fix<op::ty::opp> : btype<true,true>{};
+        template <> struct fix<op::ty::omm> : btype<true,true>{};
+        template <> struct fix<op::ty::oppack> : btype<true,true>{};
+        template <> struct fix<op::ty::opcond> :ternary{};
+        
 
     bool isConstExpr();
     bool isConstExpr(value& vl){
@@ -626,6 +785,7 @@ struct expr {
                         case result::rUsing : {return true;}
                         case result::rNS : {return true;}
                         case result::rDeclType : {return true;}
+                        case result::rConcept :{return true;}
                     };
                     return true;
                 }
@@ -651,10 +811,6 @@ struct expr {
             if(it.o!=op::ty::none){v.t==value::ty::prvalue;return;}
         };
     };  
-    void isConstExpr(){
-        for(node it : e){if(!e.val.isConstExpr()){return false;}}
-        return true;
-    };
     template <bool funcCall>
     void addArgs(stmt::init_args&& argl){
         try {e.back().val.addArgs(std::forward<stmt::init_args>(argl))}
@@ -687,6 +843,10 @@ struct expr {
             else {err::e(ThrowExpressionParse(*this));}
         };
 
+        template <> void push<op::ty::opattr>(){e.emplace_back(op::ty::opattr,op::ty::opattr,op::ty::opattr);};
+        template <> void push<op::ty::opcomma>(){e.back().o=op::ty::comma;};
+        template <> void push<op::ty::oindex>(){e.back().prefix=op::ty::oindex;e.back().postfix=op::ty::oindex;}
+
     template <op::ty Opt=op::ty::ocall>
     void pushExpr(expr&& e){
         e.emplace_back(e);
@@ -696,19 +856,18 @@ struct expr {
         if(e.back().o==none){e.back().val=args;}
         else e.emplace_back(args);
     };
-    void emplace(expr<q>&& args){
-         if(e.back().o==none){e.back().val=value<q>(args);}
-        else e.emplace_back(args);
-    };
-    void addFuncCall(){};
     template <typename T>
     void pushLiteral(T val){
         if(e.back().o!=op::ty::none and !e.back().valset){
             e.back().val=value(val);
         }else e.emplace_back(value(val));
-    }
-    type getType(){return tree.val.getType()};
-    operator type(){return getType();}
+    };
+    operator type*(){
+        for(node& i : e){
+
+        }  ;
+        
+    };
     expr Not(){
         expr<q> res;
         res.tree.opT=node::opty::prefixUnary;
@@ -717,13 +876,26 @@ struct expr {
         return res;
     };
 
-    operator bool(){
-        if(e.vt==value::truTy::eliteral and (pri::get<value::literal>(e.val.val).t==value::literal::ty::BoolLit) ){return pri::get<bool>((pri::get<value::literal>(e.val.val).lit)); }
-        else throw ExprTypeError();
-    }
-    bool cexpr(){return e.cexpr();}
-    bool ceval(){return e.ceval();}
+    bool cexpr(){for(node it : e){if(!e.val.cexpr()){return false;}};return true;}}
+    
+    bool isConveritble(type* t){
+        if(ti == &_Bool){return true;}
+        try {findOperator(ti,op::ty::opType,_Bool);}catch(const OperatorNotFound& e){return false;}
+        return true;
+    };
 
+    value get_cexpr(){
+        dtype dt;
+        for(node& i : e){
+            
+        };
+    };
+    operator bool(){
+        if(!cexpr()){throw ExprNotCexpr();}
+        if(!isConvertible(&_Bool)){throw OperatorNotFound();}
+        value d = get_cexpr();
+        return (bool)(d);
+    };
 
     
     void resolve(ast& a){
@@ -731,9 +903,12 @@ struct expr {
         auto lit = it;lit.resolve(a);
 
         
-        if(lit.prefix!=op::ty::none){stmt::FuncDef& ores= findOperator<true>(a,let->o,lit->val);}
-        if(lit.postfix!=op::ty::none){stmt::FuncDef& ores= findOperator<false>(a,let->o,lit->val);}
+        if(lit.prefix!=op::ty::none){lit->preF& ores= findOperator<true>(a,let->o,lit->val);}
+        if(lit.postfix!=op::ty::none){lit->postF& ores= findOperator<false>(a,let->o,lit->val);}
         for( ++it; it!=e.end();++it){
+        if(it.prefix!=op::ty::none){it->preF= findOperator<true>(a,it->o,it->val);}
+        if(it.postfix!=op::ty::none){it->postF= findOperator<false>(a,it->o,it->val);}
+           
             if(lit->o==op::ty::none){
                 if(lis->val.t==value::ty::literal){
                     if(it->val.tt = value::truTy::eaccList){
@@ -742,18 +917,18 @@ struct expr {
                             try {lit->postF=findOperatorLit(a,res.front().name);}
                             catch (const OperatorNotFound& e){}
                         }
+                        
 
                     }
                 }
                 else throw ExprOper(*this,lit);}
-
-                it->resolve(a);lit->binaryF= findOperator(a,let->o,lit->val,it->val);
-            
+            // Void Resolve Concept;
+            it->resolve(a);lit->binaryF= findOperator(a,let->o,lit->val,it->val);
             lit=it;
         };
     };
     
-    
+    expr(accMember_seq&& se){e.val=value(std::forward<accMember_seq>(se));}
     expr(bool s) : type(ty::literal) {bvalue=s;}
     expr(uint s) : type(ty::literal) {};
     expr(float flt) : type(ty::literal) {};
@@ -761,34 +936,9 @@ struct expr {
     expr(posit _pos) : pos(_pos) {}
 };
 
-struct lambda {
+bool iscexpr(expr& e){return e.cexpr();};
 
-    stmt::arg_list args;
-    struct  capture {
-        bool byRef;
-        value<q> vl;
-        capture(bool br,value<q>& value) : byRef(br), vl(value);
-    } ;
-    struct captureList : public pri::deque<value>{bool byCopy=false;
-        void push(bool byr,value& vl){
-            for(const auto it : *this){
-                if(it.vl==vl){throw CaptureRepeated();}
-            };
-            emplace_back(byr,vl);
-        }
-    };
-    bool Template=false;
-    attrib_list front_ats;
-    attrib_list back_ats;
-    bool Noexcept=false;
-    param_list<q> plist;
-    using argList = stmt::arg_list;
-    using tyty= std::conditional<temp::meta==q,value<q>,type>::type
-    tyty rettp;bool trailing=false;
-    attrib_list attribs;
-    stmt::block body;
 
-};
 enum accSpec{Public=3,Private=2,Protected=1};
 struct type {
     static constexpr temp tempState = q;
@@ -855,6 +1005,10 @@ struct type {
 
         using inher_list=acc_list<tyty>;      
         acc_list<tyty> inherits;
+      
+        pri::deque<StaticAssert> asserts;
+
+      
         pri::deque<stmt::DeclType*> frndsTypes;// DeclType
         pri::deque<stmt::FuncDecl*> frndsFunctions; // DeclFunction
         pri::deque<stmt::OperatorDecl*> frndsOperators; // DeclFunction
@@ -873,7 +1027,7 @@ struct type {
         acc_list<stmt::FuncDecl> methods;// Has type FuncDecl
         acc_list<stmt::Operator> operators;
         
-        acc_list<stmt::Constructor> constructors; 
+        acc_list<stmt::Constructor> constructors; //TODO Deleted constructors
         stmt::block destructor;
         
         acc_list<stmt::Concept> concepts ;
@@ -919,6 +1073,7 @@ struct type {
 
     template <typename T>
     struct ptrmem ;
+    template <> struct ptrmem<StaticAssert>          {static constexpr pri::deque<StaticAssert*> type::* ptr=&type::asserts;};
     template <>struct ptrmem<stmt::DeclType> {static constexpr pri::acc_list<stmt::DeclType> type::* ptr=&type::types ;}
     template <>struct ptrmem<stmt::VarDecl> {static constexpr pri::acc_list<stmt::VarDecl> type::* ptr=&type::vars ;}
     template <>struct ptrmem<stmt::Using> {static constexpr pri::acc_list<stmt::Using> type::* ptr=&type::variables ;}
@@ -1043,15 +1198,19 @@ struct type {
     void push(T&& p){this->*ptrmem<T>::ptr.push_back(p);};
 
     
-    void pushConstructor(stmt::ConstructorDecl&& c ){constructors.push_back(c);}
-    void pushDesctructors(stmt::ConstructorDecl&& c ){destructors.push_back(c);}
+    void pushConstructor(stmt::Constructor&& c ){constructors.push_back(c);}
+    void pushDesctructors(stmt::Constructor&& c ){destructors.push_back(c);}
 
 
     bool exists(std::string name,result* r = result::rErr,resty* res=nullptr){
         try {find(name,r,res);} catch (const  NameNotFound& e){return false}
         return true;
     };
+    expr Default(){
+        for(accMem<Constructor>& i : constructors){
 
+        };
+    }
 
     bool isFuncObj(){
         for(accMem<Operator>& it : operators){
@@ -1250,6 +1409,8 @@ case 'q' :{return 3;};
     type(std::string str,size_t ss) : dim(ss) t(ty::vec) {name=str;dim=ss;}
 };
 
+FuncDef* findOperator(type* ti,op::ty op,type& tp){return ti->findOperator(op,tp);
+};
 
 template <temp q>
 struct tyty {
@@ -1651,14 +1812,21 @@ void accMember_seq::resolve(ast& a){
     catch (const NameNotFound& e){err::e(*this,e);};
     catch (const MemberNotFound<Enum>& e){err::e(*this,e);}
 };
-
-FuncDef* findOperator(ast& a, op::ty& o , value& vl, value& vr){
-    a.findOperator(o,vl.tp,vl.tp)
-};
+FuncDef* findOperator(ast& a, op::ty& o , type& vl, type& vr){return a.findOperator(o,vl,vr);};
+FuncDef* findOperator(ast& a, op::ty& o , value& vl, value& vr){return a.findOperator(o,vl.tp,vr.tp);};
 template <bool pre>
-FuncDef* findOperator(ast& a, op::ty& o , value& vl);a->findOperator(o,vl.t);
+FuncDef* findOperator(ast& a, op::ty& o , value& vl);{return a->findOperator(o,vl.t);};
+FuncDef* findOperatorLit(ast& a,std::string name){return a.findOperatorLit(name);}
+
+template <typename get>
+accMember_seq dtype::get(ast& a){
+    type* p = this->t;
+    accMember_seq ret;
+    if(!a.funcs.empty()){
+        a.find(a);
+    }
+    if(!a.strcts.empty())
 };
-FuncDef* findOperatorLit(ast& a,std::string name){
 
 };
 

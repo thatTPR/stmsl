@@ -62,8 +62,55 @@ pri::deque<const type> vects = typeVec<2,3,4>::get<fname,fname,uname,iname,bname
 pri::deque<const type> mats = typeMat<2,3,4>::getm<fname,fname,uname,iname,bname>();
 
 
+stmt::DeclType  _is_same = []() ->stmt::DeclType {
+    stmt::DeclType res("_is_one_of",param_list<temp::meta>{param<temp::meta>(param::ty::Typename),param<temp_meta>(param::ty::Typename)}); 
+    return res;
+};
+stmt::DeclType _is_one_of = ([]()->stmt::DeclType {
+    stmt::DeclType res("_is_one_of",param_list<temp::meta>{param<temp::meta>(param::ty::Typename),param<temp::meta>(param::ty::Typename),param<temp_meta>(param::ty::Typename,true)});
+    param_list<temp::inst> pl ;pl.emplace_back(res.plist.front(),res.plist[1]);
+    res.plist.front().refs.push_back(pl.front());res.plist[1].refs.push_back(pl[1]);
+    expr e(_is_same.get(pl).variables.front().data) ;
+    res.Def.variables.push_back(stmt::VarDecl("value",_Bool,std::vector<qual>{qual::qStatic,qual::qConstexpr},)
+    return res;
+})();
+
+
+stmt::Concept _genType("genType",{param<temp::meta>("T",param::ty::Typename)},accMember_seq{accMember(_is_one_of,{"T"},)} )	//float / int / uint / double scalars & vectors
+stmt::Concept _genIType("genIType",)//	integer scalar + integer vectors
+stmt::Concept _genUType("genUType",)//	unsigned scalar + unsigned vectors
+stmt::Concept _genBType("genBType",)//	boolean scalar + boolean vectors
+stmt::Concept _genDType("genDType",)//	double scalar + double vectors
+stmt::Concept _genFType("genFType",)//	float scalar + float vectors
+stmt::Concept _genMType("genMType",)//	matrices (mat2, mat3, mat4, dmat*)
+
+
+template <param_list<temp::meta> , param_list<temp::inst> specp>
+struct spec {
+
+};
+template <param_list<temp::meta> , param_list<temp::inst>... Specs >
+struct funcTy  {
+
+};
+template<Str s, typename FuncTy  > struct IntrinscFunc : CEStr<s> {
+    template <lanage>
+    stmt::FuncDecl()
+};
+
 // Trig
-const stmt::FuncDecl _acos("acos",param_list<temp::meta>{} , arg_list);
+
+
+
+const stmt::FuncDecl getFunc(std::string str, param_list<temp::meta>&& plist , ){
+    stmt::FuncDecl fdecl(plist,);
+    fdecl.func
+};
+
+const stmt::FuncDecl
+
+
+const stmt::FuncDecl _acos("acos",param_list<temp::meta>{param(rettT,inT),} ,rett, arg_list);
 const stmt::FuncDecl _acosh("acosh",);
 const stmt::FuncDecl _asin("asin",);
 const stmt::FuncDecl _asinh("asinh");

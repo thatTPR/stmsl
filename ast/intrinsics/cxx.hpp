@@ -11,7 +11,10 @@
     const type _Bool("Bool",type::prim::Bool);
 
 
-dtype (&)
-
+    // New Delete
+    void funcNew(void* ptr){};
+    void func_NewArr(void* ptr,size_t s){};
+    void funcDelete(void* ptr){};
+    void func
 
 #endif

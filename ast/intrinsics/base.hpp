@@ -4,6 +4,13 @@
 #include "..backend.hpp"
 
 
+struct technology {
+
+};
+
+
+template <>
+
 template <language l>
 struct isaSetBase  {
     template <typename >
